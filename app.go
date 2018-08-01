@@ -1,10 +1,24 @@
 package main
 
 import (
+	"io/ioutil"
 	"log"
+	"path/filepath"
 
 	"github.com/kelseyhightower/envconfig"
 )
+
+type vaultConfig struct {
+	App            string   //get from env
+	AppEnv         string   // get from env
+	Address        string   // get from env
+	Secrets        []string // get from env
+	RoleID         string   // get from docker secret
+	SecretID       string   // get from docker secret
+	token          string
+	secretRootPath string
+	credentials    VaultAppRoleCredntials
+}
 
 var vaultCfg vaultConfig
 
@@ -13,28 +27,45 @@ func main() {
 	if err != nil {
 		log.Fatal(err.Error())
 	}
-	vaultCfg.credential, err = getDockerSecret("credential")
+	//fmt.Println("printing config")
+	//fmt.Println(vaultCfg.Address)
+	vaultCfg.credentials.RoleID, err = getDockerSecret("role_id")
 	if err != nil {
 		log.Fatal(err)
 	}
-	vaultCfg.secretID, err = getDockerSecret("secret")
+	vaultCfg.credentials.SecretID, err = getDockerSecret("secret_id")
 	if err != nil {
 		log.Fatal(err)
 	}
-	err = vaultCfg.Init()
-	if err != nil {
-		log.Fatal(err)
+	// err = vaultCfg.Init()
+	// if err != nil {
+	// 	log.Fatal(err)
+	// }
+	vaultCfg.token, err = auth(vaultCfg.credentials)
+	//fmt.Println(vaultCfg.token)
+	// publish secret
+	for _, v := range vaultCfg.Secrets {
+		_ = publishVaultSecret(v)
 	}
 
 }
 
 func getDockerSecret(name string) (secret string, err error) {
 	// read from docker secret
-	secret = "toto"
+	dat, err := ioutil.ReadFile(filepath.Join("/run/secret", name))
+	if err != nil {
+		return "", err
+	}
+	secret = string(dat)
 	return secret, nil
 }
 
-// 	GVS_APP        string   //get from env
-//	GVS_APPENV     string   // get from env
-//	GVS_ADDRESS    string   // get from env
-//	GVS_SECRETS    []string // get from env
+// func publishSecret(name string) error {
+// 	secret, err := readVaultSecret(name)
+// 	if err != nil {
+// 		return err
+// 	}
+// 	os.Setenv("GVS_"+strings.ToUpper(name), secret)
+
+// 	return nil
+// }
