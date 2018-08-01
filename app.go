@@ -8,44 +8,46 @@ import (
 	"github.com/kelseyhightower/envconfig"
 )
 
-type vaultConfig struct {
-	App            string   //get from env
-	AppEnv         string   // get from env
-	Address        string   // get from env
-	Secrets        []string // get from env
-	RoleID         string   // get from docker secret
-	SecretID       string   // get from docker secret
-	token          string
-	secretRootPath string
-	credentials    VaultAppRoleCredntials
+// holds our config
+type appConfig struct {
+	App              string   //get from env $GVS_APP
+	AppEnv           string   // get from env $GVS_APPENV
+	VaultAddr        string   // get from env $GVS_VAULTADDR
+	Secrets          []string // get from env $GVS_SECRETS
+	Token            string
+	secretRootPath   string
+	VaultCredentials VaultAppRoleCredentials
 }
 
-var vaultCfg vaultConfig
+var appCfg appConfig
 
 func main() {
-	err := envconfig.Process("gvs", &vaultCfg)
+	// get part of config from env
+	err := envconfig.Process("gvs", &appCfg)
 	if err != nil {
-		log.Fatal(err.Error())
+		log.Fatal("Error processing env variables: ", err)
 	}
-	//fmt.Println("printing config")
-	//fmt.Println(vaultCfg.Address)
-	vaultCfg.credentials.RoleID, err = getDockerSecret("role_id")
+	appCfg.secretRootPath = filepath.Join(appCfg.App, appCfg.AppEnv)
+	// read docker secret to get Vault App Role credentials
+	appCfg.VaultCredentials.RoleID, err = getDockerSecret("role_id")
 	if err != nil {
-		log.Fatal(err)
+		log.Fatal("Error reading role_id docker secret: ", err)
 	}
-	vaultCfg.credentials.SecretID, err = getDockerSecret("secret_id")
+	appCfg.VaultCredentials.SecretID, err = getDockerSecret("secret_id")
 	if err != nil {
-		log.Fatal(err)
+		log.Fatal("Error reading secret_id docker secret: ", err)
 	}
-	// err = vaultCfg.Init()
-	// if err != nil {
-	// 	log.Fatal(err)
-	// }
-	vaultCfg.token, err = auth(vaultCfg.credentials)
-	//fmt.Println(vaultCfg.token)
-	// publish secret
-	for _, v := range vaultCfg.Secrets {
-		_ = publishVaultSecret(v)
+	appCfg.Token, err = auth(appCfg.VaultCredentials)
+	if err != nil {
+		log.Fatal("Vault auth error: ", err)
+	}
+
+	// read Vault Secrets listed in $GVS_SECRETS and set them as GVS_ prefixed env variables
+	for _, v := range appCfg.Secrets {
+		err = publishVaultSecret(v)
+		if err != nil {
+			log.Fatal("Error processing Vault Secret:", err)
+		}
 	}
 
 }
@@ -56,16 +58,5 @@ func getDockerSecret(name string) (secret string, err error) {
 	if err != nil {
 		return "", err
 	}
-	secret = string(dat)
-	return secret, nil
+	return string(dat), nil
 }
-
-// func publishSecret(name string) error {
-// 	secret, err := readVaultSecret(name)
-// 	if err != nil {
-// 		return err
-// 	}
-// 	os.Setenv("GVS_"+strings.ToUpper(name), secret)
-
-// 	return nil
-// }

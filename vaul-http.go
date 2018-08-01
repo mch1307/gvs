@@ -3,36 +3,16 @@ package main
 import (
 	"bytes"
 	"encoding/json"
-	"fmt"
 	"io/ioutil"
 	"log"
 	"net/http"
 	"os"
+	"path/filepath"
 	"strings"
 	"time"
 )
 
-// type VaultSecretv2 struct {
-// 	RequestID     string `json:"request_id"`
-// 	LeaseID       string `json:"lease_id"`
-// 	Renewable     bool   `json:"renewable"`
-// 	LeaseDuration int    `json:"lease_duration"`
-// 	Data          struct {
-// 		Data struct {
-// 			Value string `json:"value"`
-// 		} `json:"data"`
-// 		Metadata struct {
-// 			CreatedTime  time.Time `json:"created_time"`
-// 			DeletionTime string    `json:"deletion_time"`
-// 			Destroyed    bool      `json:"destroyed"`
-// 			Version      int       `json:"version"`
-// 		} `json:"metadata"`
-// 	} `json:"data"`
-// 	WrapInfo interface{} `json:"wrap_info"`
-// 	Warnings interface{} `json:"warnings"`
-// 	Auth     interface{} `json:"auth"`
-// }
-
+// VaultSecretv2 holds the Vault secret (kv v2)
 type VaultSecretv2 struct {
 	RequestID     string `json:"request_id"`
 	LeaseID       string `json:"lease_id"`
@@ -52,11 +32,25 @@ type VaultSecretv2 struct {
 	Auth     interface{} `json:"auth"`
 }
 
-type VaultAppRoleCredntials struct {
+// VaultSecret holds the Vault secret (kv v1)
+type VaultSecret struct {
+	RequestID     string            `json:"request_id"`
+	LeaseID       string            `json:"lease_id"`
+	Renewable     bool              `json:"renewable"`
+	LeaseDuration int               `json:"lease_duration"`
+	Data          map[string]string `json:"data"`
+	WrapInfo      interface{}       `json:"wrap_info"`
+	Warnings      interface{}       `json:"warnings"`
+	Auth          interface{}       `json:"auth"`
+}
+
+// VaultAppRoleCredentials holds the role and secret id for Vault approle auth
+type VaultAppRoleCredentials struct {
 	RoleID   string `json:"role_id"`
 	SecretID string `json:"secret_id"`
 }
 
+// VaultAuthResponse holds the Vault auth response, used to get the Clienttoken
 type VaultAuthResponse struct {
 	RequestID     string      `json:"request_id"`
 	LeaseID       string      `json:"lease_id"`
@@ -81,13 +75,13 @@ type VaultAuthResponse struct {
 var vaultAuthResponse VaultAuthResponse
 var vaultSecret VaultSecretv2
 
-func auth(a VaultAppRoleCredntials) (token string, err error) {
+func auth(a VaultAppRoleCredentials) (token string, err error) {
 	client := http.Client{
 		Timeout: time.Second * 2, // Maximum of 2 secs
 	}
 	payload := new(bytes.Buffer)
 	json.NewEncoder(payload).Encode(a)
-	req, err := http.NewRequest("POST", vaultCfg.Address+"/v1/auth/approle/login", payload)
+	req, err := http.NewRequest("POST", appCfg.VaultAddr+"/v1/auth/approle/login", payload)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -111,7 +105,8 @@ func auth(a VaultAppRoleCredntials) (token string, err error) {
 }
 
 func publishVaultSecret(name string) error {
-	url := vaultCfg.Address + "/v1/secret/data/demo/" + name
+	url := appCfg.VaultAddr + filepath.Join("/v1/secret/data/", appCfg.secretRootPath)
+	//url := appCfg.VaultAddr + "/v1/kv/demo/" + name
 	client := http.Client{
 		Timeout: time.Second * 2, // Maximum of 2 secs
 	}
@@ -120,7 +115,7 @@ func publishVaultSecret(name string) error {
 		log.Fatal(err)
 	}
 	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("X-Vault-Token", vaultCfg.token)
+	req.Header.Set("X-Vault-Token", appCfg.Token)
 
 	res, err := client.Do(req)
 	if err != nil {
@@ -134,15 +129,26 @@ func publishVaultSecret(name string) error {
 	if jsonErr != nil {
 		log.Fatal(jsonErr)
 	}
-	fmt.Println(vaultSecret.Data.Data)
+
+	// create a shell script that will export the secret to env variables
+	f, err := os.Create("/tmp/gvs.sh")
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer f.Close()
+	_, err = f.WriteString("#!/bin/bash\n")
+
 	for k, v := range vaultSecret.Data.Data {
 		if k != "value" {
-			os.Setenv("GVS_"+strings.ToUpper(k), v)
+			_, _ = f.WriteString("export GVS_" + strings.ToUpper(k) + "=" + v + "\n")
+			//os.Setenv("GVS_"+strings.ToUpper(k), v)
 		} else {
-			os.Setenv("GVS_"+strings.ToUpper(name), v)
+			_, _ = f.WriteString("export GVS_" + strings.ToUpper(name) + "=" + v + "\n")
+			//os.Setenv("GVS_"+strings.ToUpper(name), v)
 		}
 	}
-
+	_, err = f.WriteString("rm -rf /tmp/gvs.sh\n")
+	f.Sync()
 	return nil
 
 }

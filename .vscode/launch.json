@@ -12,11 +12,11 @@
             "remotePath": "",
             "port": 2345,
             "host": "127.0.0.1",
-            "program": "${fileDirname}",
+            "program": "${workspaceRoot}",
             "env": 
-                {"GVS_ADDRESS":"http://127.0.0.1:8200",
+                {"GVS_VAULTADDR":"http://127.0.0.1:8200",
                  "GVS_APP": "demo",
-                 "GVS_SECRETS":"dev",
+                 "GVS_SECRETS":"secret1",
                  "GVS_APPENV":"dev"}
             ,
             "args": [],
