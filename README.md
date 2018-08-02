@@ -18,7 +18,7 @@ Get the list of secret(s) to get from environment variable
 GVS_SECRETS    []string
 ```
 
-The requested Vault secrets will be available to the container as env var, prefixed with GVS_.
+The requested Vault secrets will be available to the container as env var, prefixed with the name of you application (uppercase).
 
 
 ## Example
@@ -61,4 +61,4 @@ Specify the environment dependent variables when running your container:
 
 Assuming the app and secrets list are stored in the docker image, gvs will get the `GVS_APPENV` and `GVS_VAULTADDR` from the docker run command.
 
-It will use them to connect to the right Vault cluster, read the application's secrets (`GVS_MYSECRET1` & `GVS_MYSECRET2`) and make them accessible to your application
+It will use them to connect to the right Vault cluster, read the application's secrets (`DEMO_MYSECRET1` & `DEMO_MYSECRET2`) and make them accessible to your application

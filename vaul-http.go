@@ -12,6 +12,36 @@ import (
 	"time"
 )
 
+// VaultRawSecret holds both v1 and v2 Vault secret
+type VaultRawSecret struct {
+	RequestID     string          `json:"request_id"`
+	LeaseID       string          `json:"lease_id"`
+	Renewable     bool            `json:"renewable"`
+	LeaseDuration int             `json:"lease_duration"`
+	Data          json.RawMessage `json:"data"`
+	WrapInfo      interface{}     `json:"wrap_info"`
+	Warnings      interface{}     `json:"warnings"`
+	Auth          interface{}     `json:"auth"`
+}
+
+// VaultV2SecretData holds the Vault kv v2 secret data
+type VaultV2SecretData struct {
+	Data struct {
+		Data     map[string]string `json:"data"`
+		Metadata struct {
+			CreatedTime  time.Time `json:"created_time"`
+			DeletionTime string    `json:"deletion_time"`
+			Destroyed    bool      `json:"destroyed"`
+			Version      int       `json:"version"`
+		} `json:"metadata"`
+	} `json:"data"`
+}
+
+// VaultV1SecretData holds the Vault kv v1 secret data
+type VaultV1SecretData struct {
+	Data map[string]string `json:"data"`
+}
+
 // VaultSecretv2 holds the Vault secret (kv v2)
 type VaultSecretv2 struct {
 	RequestID     string `json:"request_id"`
@@ -104,7 +134,7 @@ func auth(a VaultAppRoleCredentials) (token string, err error) {
 	return vaultAuthResponse.Auth.ClientToken, nil
 }
 
-func publishVaultSecret(name string) error {
+func publishVaultSecret(path string) error {
 	url := appCfg.VaultAddr + filepath.Join("/v1/secret/data/", appCfg.secretRootPath)
 	//url := appCfg.VaultAddr + "/v1/kv/demo/" + name
 	client := http.Client{
@@ -140,10 +170,10 @@ func publishVaultSecret(name string) error {
 
 	for k, v := range vaultSecret.Data.Data {
 		if k != "value" {
-			_, _ = f.WriteString("export GVS_" + strings.ToUpper(k) + "=" + v + "\n")
+			_, _ = f.WriteString("export " + strings.ToUpper(appCfg.App) + "_" + strings.ToUpper(k) + "=" + v + "\n")
 			//os.Setenv("GVS_"+strings.ToUpper(k), v)
 		} else {
-			_, _ = f.WriteString("export GVS_" + strings.ToUpper(name) + "=" + v + "\n")
+			_, _ = f.WriteString("export " + strings.ToUpper(appCfg.App) + "_" + strings.ToUpper(path) + "=" + v + "\n")
 			//os.Setenv("GVS_"+strings.ToUpper(name), v)
 		}
 	}
