@@ -12,6 +12,18 @@ import (
 	"time"
 )
 
+// VaultSecretResponse generic vault scret response
+type VaultSecretResponse struct {
+	RequestID     string `json:"request_id"`
+	LeaseID       string `json:"lease_id"`
+	Renewable     bool   `json:"renewable"`
+	LeaseDuration int    `json:"lease_duration"`
+	Data          json.RawMessage
+	WrapInfo      interface{} `json:"wrap_info"`
+	Warnings      interface{} `json:"warnings"`
+	Auth          interface{} `json:"auth"`
+}
+
 // VaultSecretv2 holds the Vault secret (kv v2)
 type VaultSecretv2 struct {
 	RequestID     string `json:"request_id"`
@@ -81,7 +93,7 @@ func auth(a VaultAppRoleCredentials) (token string, err error) {
 	}
 	payload := new(bytes.Buffer)
 	json.NewEncoder(payload).Encode(a)
-	req, err := http.NewRequest("POST", appCfg.VaultAddr+"/v1/auth/approle/login", payload)
+	req, err := http.NewRequest("POST", appCfg.VaultURL+"/v1/auth/approle/login", payload)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -105,8 +117,7 @@ func auth(a VaultAppRoleCredentials) (token string, err error) {
 }
 
 func publishVaultSecret(name string) error {
-	url := appCfg.VaultAddr + filepath.Join("/v1/secret/data/", appCfg.secretRootPath)
-	//url := appCfg.VaultAddr + "/v1/kv/demo/" + name
+	url := appCfg.VaultURL + filepath.Join("/v1/secret/data/", appCfg.SecretPath)
 	client := http.Client{
 		Timeout: time.Second * 2, // Maximum of 2 secs
 	}
@@ -131,24 +142,16 @@ func publishVaultSecret(name string) error {
 	}
 
 	// create a shell script that will export the secret to env variables
-	f, err := os.Create("/tmp/gvs.sh")
+	f, err := os.Create(filepath.Join(appCfg.SecretFilePath, "gvs"))
 	if err != nil {
 		log.Fatal(err)
 	}
 	defer f.Close()
-	_, err = f.WriteString("#!/bin/bash\n")
 
 	for k, v := range vaultSecret.Data.Data {
-		if k != "value" {
-			_, _ = f.WriteString("export GVS_" + strings.ToUpper(k) + "=" + v + "\n")
-			//os.Setenv("GVS_"+strings.ToUpper(k), v)
-		} else {
-			_, _ = f.WriteString("export GVS_" + strings.ToUpper(name) + "=" + v + "\n")
-			//os.Setenv("GVS_"+strings.ToUpper(name), v)
-		}
+		_, _ = f.WriteString(strings.ToUpper(k) + "=" + v + "\n")
 	}
-	_, err = f.WriteString("rm -rf /tmp/gvs.sh\n")
 	f.Sync()
-	return nil
+	return err
 
 }
