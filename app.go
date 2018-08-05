@@ -78,6 +78,7 @@ func main() {
 			log.Fatal("Error processing Vault Secret:", err)
 		}
 	}
+	_ = destroySecretFile(appCfg.SecretPath, appCfg.SecretAvailabletime)
 }
 
 func getDockerSecret(path string) (secret string, err error) {
