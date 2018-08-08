@@ -6,6 +6,7 @@ import (
 	"time"
 )
 
+// VaultSecretMount holds vault mount info
 type VaultSecretMount struct {
 	Name     string `json:??,string`
 	Accessor string `json:"accessor"`
@@ -22,8 +23,11 @@ type VaultSecretMount struct {
 	Type        string                 `json:"type"`
 }
 
+// VaultSecretMounts string map of VaultSecretMount
+// used to parse the Vault JSON response to /v1/sys/internal/ui/mounts
 type VaultSecretMounts map[string]*VaultSecretMount
 
+// UnmarshalJSON unmarshal Vault JSON response to /v1/sys/internal/ui/mounts
 func (p *VaultSecretMounts) UnmarshalJSON(data []byte) error {
 	var transient = make(map[string]*VaultSecretMount)
 	err := json.Unmarshal(data, &transient)
@@ -52,37 +56,6 @@ type VaultMountListRespone struct {
 	WrapInfo interface{} `json:"wrap_info"`
 	Warnings interface{} `json:"warnings"`
 	Auth     interface{} `json:"auth"`
-}
-
-type VaultMountInfo struct {
-	Secret struct {
-		Accessor string `json:"accessor"`
-		Config   struct {
-			DefaultLeaseTTL int    `json:"default_lease_ttl"`
-			ForceNoCache    bool   `json:"force_no_cache"`
-			MaxLeaseTTL     int    `json:"max_lease_ttl"`
-			PluginName      string `json:"plugin_name"`
-		} `json:"config"`
-		Description string `json:"description"`
-		Local       bool   `json:"local"`
-		Options     struct {
-			Version string `json:"version"`
-		} `json:"options"`
-		SealWrap bool   `json:"seal_wrap"`
-		Type     string `json:"type"`
-	} `json:"secret/"`
-}
-
-// VaultSecretResponse generic vault scret response
-type VaultSecretResponse struct {
-	RequestID     string                 `json:"request_id"`
-	LeaseID       string                 `json:"lease_id"`
-	Renewable     bool                   `json:"renewable"`
-	LeaseDuration int                    `json:"lease_duration"`
-	Data          map[string]interface{} `json:"data"`
-	WrapInfo      interface{}            `json:"wrap_info"`
-	Warnings      interface{}            `json:"warnings"`
-	Auth          interface{}            `json:"auth"`
 }
 
 // VaultSecretv2 holds the Vault secret (kv v2)
