@@ -2,11 +2,13 @@ package main
 
 import (
 	"bytes"
+	"fmt"
 	"io/ioutil"
 	"log"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 )
 
 // holds our config
@@ -21,14 +23,16 @@ type appConfig struct {
 	SecretAvailabletime string // default: 60 sec
 	Token               string
 	VaultCredentials    VaultAppRoleCredentials
+	vaultKVVersion      int
 }
 
 var appCfg appConfig
 
-func main() {
+func init() {
 	var err error
-
+	fmt.Println("starting init")
 	// get part of config from env
+	appCfg.vaultKVVersion = 2
 	appCfg.AppName = os.Getenv("GVS_APPNAME")
 	appCfg.AppEnv = os.Getenv("GVS_APPENV")
 	appCfg.VaultURL = os.Getenv("GVS_VAULTURL")
@@ -39,26 +43,48 @@ func main() {
 	appCfg.VaultSecretID = os.Getenv("GVS_VAULTSECRETID")
 
 	if len(appCfg.SecretFilePath) == 0 {
-		appCfg.SecretFilePath = "/dev/shm"
+		appCfg.SecretFilePath = "/dev/shm/gvs"
+	} else {
+		appCfg.SecretFilePath = filepath.Join(appCfg.SecretFilePath, "gvs")
 	}
+
 	if len(appCfg.SecretAvailabletime) == 0 {
 		appCfg.SecretAvailabletime = "60"
 	}
+
 	if len(appCfg.SecretPath) == 0 {
-		appCfg.SecretPath = filepath.Join(appCfg.AppName, appCfg.AppEnv)
+		// default to Vault kv v2, default secret/data path
+		appCfg.SecretPath = filepath.Join("secret/data", appCfg.AppName, appCfg.AppEnv)
+	} else {
+		secretParam := strings.Split(appCfg.SecretPath, "/")
+		if len(secretParam) == 1 {
+			// we get a name, not a full secret path -> default to Vault kv v2, default secret/data path
+			appCfg.SecretPath = filepath.Join("secret/data", secretParam[0])
+		} else {
+			// assume we got a full secret path
+			// check kv version
+			appCfg.vaultKVVersion, err = getKVVersion(secretParam[0] + "/")
+			if err != nil {
+				log.Fatal(err)
+			}
+		}
 	}
-	// read docker secret to get Vault App Role credentials
+
+	// read secret to get Vault App Role credentials
 	if len(appCfg.VaultRoleID) == 0 {
 		appCfg.VaultRoleID = "/run/secret/role_id"
 	}
-	appCfg.VaultCredentials.RoleID, err = getDockerSecret(appCfg.VaultSecretID)
+
+	appCfg.VaultCredentials.RoleID, err = getSecret(appCfg.VaultRoleID)
 	if err != nil {
 		log.Fatal("Error reading role_id docker secret: ", err)
 	}
+
 	if len(appCfg.VaultSecretID) == 0 {
 		appCfg.VaultSecretID = "/run/secret/secret_id"
 	}
-	appCfg.VaultCredentials.SecretID, err = getDockerSecret(appCfg.VaultSecretID)
+
+	appCfg.VaultCredentials.SecretID, err = getSecret(appCfg.VaultSecretID)
 	if err != nil {
 		log.Fatal("Error reading secret_id docker secret: ", err)
 	}
@@ -66,22 +92,27 @@ func main() {
 	if err != nil {
 		log.Fatal("Vault auth error: ", err)
 	}
+}
 
+func main() {
+	var err error
+	fmt.Println("Checking secretfileok")
 	secretFileOK, step, errSecretFile := isSecretFilePathOK(appCfg.SecretFilePath)
 	if errSecretFile != nil {
 		log.Fatal(step, errSecretFile)
 	}
 	if secretFileOK {
+		fmt.Println("secretfileok")
 		// read Vault Secrets write them in kv file
 		err = publishVaultSecret(appCfg.SecretPath)
 		if err != nil {
 			log.Fatal("Error processing Vault Secret:", err)
 		}
 	}
-	_ = destroySecretFile(appCfg.SecretPath, appCfg.SecretAvailabletime)
+	_ = destroySecretFile(appCfg.SecretFilePath, appCfg.SecretAvailabletime)
 }
 
-func getDockerSecret(path string) (secret string, err error) {
+func getSecret(path string) (secret string, err error) {
 	// read from docker secret
 	dat, err := ioutil.ReadFile(filepath.Join(path))
 	if err != nil {
@@ -127,7 +158,7 @@ func mountFS(path, timeout string) error {
 }
 
 func isSecretFilePathOK(path string) (isOK bool, step string, err error) {
-	testFile := filepath.Join(appCfg.SecretFilePath, "gvs.tmp")
+	testFile := appCfg.SecretFilePath + ".tmp"
 	// create tmp test file
 	f, err := os.Create(testFile)
 	if err != nil {
@@ -147,7 +178,7 @@ func isSecretFilePathOK(path string) (isOK bool, step string, err error) {
 	if err != nil {
 		return false, "Destroy File", err
 	}
-	return false, "", nil
+	return true, "", nil
 
 }
 
@@ -163,7 +194,7 @@ func destroySecretFile(path, delay string) error {
 	}
 
 	cmdUmount := exec.Command("/bin/sh", "-c", sleepPath+" "+delay+" && "+rmPath+" "+path)
-	err = cmdUmount.Run()
+	err = cmdUmount.Start()
 	if err != nil {
 		return (err)
 	}

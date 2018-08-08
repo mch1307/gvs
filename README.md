@@ -1,27 +1,32 @@
 # gvs
 
-Simple container utility to read Vault secrets (kv v2) for a given application. Will put the secret(s) in a file on a tmpfs mount.
+Simple container utility to read Vault secrets for a given application. Will put the secret(s) in a file and remove this file after x seconds.
+
+Support secrets stored as key/value for both kv v1 and v2.
 
 ## Pre Requisites
 
 * `sleep` and `rm` should be available in user PATH
 
-## What It Does
+## How It Works
 
 When started, `gvs` will first read it's parameters from `GVS_` prefixed environment variables.
 
 ```
-GVS_APPNAME                 string  Name of your application (can be stored in the container)
-GVS_APPENV                  string  Environment where the app will run (ie dev, test,..)
-GVS_VAULTURL                string  URL of the Vault server
-GVS_SECRETPATH              string  Path where the Vault secret will be read. 
-GVS_SECRETTARGETPATH        string  Path where the secret kv file will be written  (default /mnt/ramfs)
-GVS_SECRETAVAILABLETIME     string  Number of seconds after which the secret file will be destroyed
-GVS_VAULTROLEID             string  Path to file containing the Vault role id (default run/secret/role_id)
-GVS_VAULTROLESECRETID       string  Path to file containing the Vault secret id (dedault /run/secret/secret_id)
+GVS_APPNAME                 Name of your application (ideally stored in the container)
+GVS_APPENV                  Environment where the app will run (ie dev, test,..)
+GVS_VAULTURL                URL of the Vault server
+GVS_SECRETPATH              Path to the Vault secret.
+                            Defaults to secret/data/appName-env (kv v2)
+                            Can be the "name" of the secret (last part of the path) or the complete secret path.
+                            In case only the last part is provided, gvs will assume kv v2 is used.
+GVS_SECRETTARGETPATH        Path where the secret kv file will be written  (default /dev/shm)
+GVS_SECRETAVAILABLETIME     Number of seconds after which the secret file will be destroyed
+GVS_VAULTROLEID             Path to file containing the Vault role id (default run/secret/role_id)
+GVS_VAULTROLESECRETID       Path to file containing the Vault secret id (default /run/secret/secret_id)
 ```
 
-It will then read the Vault role_id and secret_id from docker secrets. By convention, those should be called role_id and secret_id so that they are mounted in `/run/secret/role_id` and `/run/secret/secret_id`. This can be overriden by specifying the `GVS_VAULTROLEID` and `GVS_VAULTSECRETID` env variables.
+`gvs` will read the Vault role_id and secret_id from files secrets. By convention, those should be called role_id and secret_id and mounted in `/run/secret/role_id` and `/run/secret/secret_id` (docker secret). This can be overriden by specifying the full file path in `GVS_VAULTROLEID` and `GVS_VAULTSECRETID` env variables.
 
 Before reading the Vault secret kv(s), it will build the path from the `GVS_APPNAME` and `GVS_APPENV` variables, unless the `GVS_SECRETPATH` is specified.
 
@@ -56,15 +61,6 @@ gvs
 .
 code to start your app
 ```
-
-> __tini__
-> 
-> In case you are using tini, you will need to add the `-s` tini flag in order to make sure tini will properly handle termination signals
->
-> For example:
->
-> `ENTRYPOINT ["gvs &&","/sbin/tini", "-s", "--", "/usr/local/bin/jenkins.sh"]`
-
 
 ### Run your container
 
