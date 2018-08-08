@@ -3,7 +3,6 @@ package main
 import (
 	"bytes"
 	"encoding/json"
-	"fmt"
 	"io/ioutil"
 	"log"
 	"net/http"
@@ -11,6 +10,8 @@ import (
 	"path/filepath"
 	"strings"
 	"time"
+
+	"gopkg.in/yaml.v2"
 )
 
 var vaultAuthResponse VaultAuthResponse
@@ -37,7 +38,7 @@ func getKVVersion(name string) (version int, err error) {
 	if readErr != nil {
 		log.Fatal(readErr)
 	}
-	fmt.Printf("%s\n", body)
+
 	var vaultRsp VaultMountListRespone
 
 	jsonErr := json.Unmarshal(body, &vaultRsp)
@@ -132,17 +133,22 @@ func publishVaultSecret(path string) error {
 			log.Fatal(err)
 		}
 	}
-	// create a shell script that will export the secret to env variables
+
+	// create the secret file
 	f, err := os.Create(appCfg.SecretFilePath)
 	if err != nil {
 		log.Fatal(err)
 	}
 	defer f.Close()
-
-	for k, v := range secretsList {
-		_, _ = f.WriteString(strings.ToUpper(k) + "=" + v + "\n")
+	if appCfg.OutputFormat == "yaml" {
+		output, _ := yaml.Marshal(&secretsList)
+		_, _ = f.Write(output)
+	} else {
+		for k, v := range secretsList {
+			_, _ = f.WriteString(strings.ToUpper(k) + "=" + v + "\n")
+		}
+		f.Sync()
 	}
-	f.Sync()
 	return err
 
 }

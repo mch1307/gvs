@@ -24,6 +24,7 @@ GVS_SECRETTARGETPATH        Path where the secret kv file will be written  (defa
 GVS_SECRETAVAILABLETIME     Number of seconds after which the secret file will be destroyed
 GVS_VAULTROLEID             Path to file containing the Vault role id (default run/secret/role_id)
 GVS_VAULTROLESECRETID       Path to file containing the Vault secret id (default /run/secret/secret_id)
+GVS_OUTPUTFORMAT            yaml by default, key=value text if any other value supplied
 ```
 
 `gvs` will read the Vault role_id and secret_id from files secrets. By convention, those should be called role_id and secret_id and mounted in `/run/secret/role_id` and `/run/secret/secret_id` (docker secret). This can be overriden by specifying the full file path in `GVS_VAULTROLEID` and `GVS_VAULTSECRETID` env variables.

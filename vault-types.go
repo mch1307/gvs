@@ -2,7 +2,6 @@ package main
 
 import (
 	"encoding/json"
-	"fmt"
 	"time"
 )
 
@@ -30,8 +29,8 @@ type VaultSecretMounts map[string]*VaultSecretMount
 // UnmarshalJSON unmarshal Vault JSON response to /v1/sys/internal/ui/mounts
 func (p *VaultSecretMounts) UnmarshalJSON(data []byte) error {
 	var transient = make(map[string]*VaultSecretMount)
+
 	err := json.Unmarshal(data, &transient)
-	fmt.Printf("%s\n", data)
 	if err != nil {
 		return err
 	}

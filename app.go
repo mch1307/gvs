@@ -2,7 +2,6 @@ package main
 
 import (
 	"bytes"
-	"fmt"
 	"io/ioutil"
 	"log"
 	"os"
@@ -24,13 +23,14 @@ type appConfig struct {
 	Token               string
 	VaultCredentials    VaultAppRoleCredentials
 	vaultKVVersion      int
+	OutputFormat        string
 }
 
 var appCfg appConfig
 
 func init() {
 	var err error
-	fmt.Println("starting init")
+	//fmt.Println("starting init")
 	// get part of config from env
 	appCfg.vaultKVVersion = 2
 	appCfg.AppName = os.Getenv("GVS_APPNAME")
@@ -41,6 +41,7 @@ func init() {
 	appCfg.SecretAvailabletime = os.Getenv("GVS_SECRETAVAILABLETIME")
 	appCfg.VaultRoleID = os.Getenv("GVS_VAULTROLEID")
 	appCfg.VaultSecretID = os.Getenv("GVS_VAULTSECRETID")
+	appCfg.OutputFormat = os.Getenv("GVS_OUTPUTFORMAT")
 
 	if len(appCfg.SecretFilePath) == 0 {
 		appCfg.SecretFilePath = "/dev/shm/gvs"
@@ -92,17 +93,21 @@ func init() {
 	if err != nil {
 		log.Fatal("Vault auth error: ", err)
 	}
+
+	if len(appCfg.OutputFormat) == 0 {
+		appCfg.OutputFormat = "yaml"
+	}
 }
 
 func main() {
 	var err error
-	fmt.Println("Checking secretfileok")
+	//fmt.Println("Checking secretfileok")
 	secretFileOK, step, errSecretFile := isSecretFilePathOK(appCfg.SecretFilePath)
 	if errSecretFile != nil {
 		log.Fatal(step, errSecretFile)
 	}
 	if secretFileOK {
-		fmt.Println("secretfileok")
+		//fmt.Println("secretfileok")
 		// read Vault Secrets write them in kv file
 		err = publishVaultSecret(appCfg.SecretPath)
 		if err != nil {
