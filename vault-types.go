@@ -7,7 +7,7 @@ import (
 
 // VaultSecretMount holds vault mount info
 type VaultSecretMount struct {
-	Name     string `json:??,string`
+	Name     string `json:"??,string"`
 	Accessor string `json:"accessor"`
 	Config   struct {
 		DefaultLeaseTTL int    `json:"default_lease_ttl"`
