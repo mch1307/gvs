@@ -1,7 +1,6 @@
 package main
 
 import (
-	"bytes"
 	"io/ioutil"
 	"log"
 	"os"
@@ -11,113 +10,119 @@ import (
 )
 
 // holds our config
-type appConfig struct {
-	AppName             string // get from $GVS_APP
-	AppEnv              string // get from $GVS_APPENV
-	VaultURL            string // get from $GVS_VAULTADDR
-	SecretPath          string // get from $GVS_SECRETPATH, computed if not provided
-	VaultRoleID         string // get from $GVS_VAULTROLEID, default
-	VaultSecretID       string // get from $GVS_VAULTSECRETID, default
-	SecretFilePath      string // default: /mnt/ramfs
-	SecretAvailabletime string // default: 60 sec
-	Token               string
+type gvsConfig struct {
+	AppName             string   // get from $GVS_APP
+	AppEnv              string   // get from $GVS_APPENV
+	VaultURL            string   // get from $GVS_VAULTADDR
+	VaultSecretPath     string   // get from $GVS_SECRETPATH, computed if not provided
+	VaultRoleID         string   // get from $GVS_VAULTROLEID, default
+	VaultSecretID       string   // get from $GVS_VAULTSECRETID, default
+	SecretFilePath      string   // default: /mnt/ramfs
+	SecretAvailabletime string   // default: 60 sec
+	SecretList          []string // list of secrets the application want to get
+	VaultToken          string
 	VaultCredentials    VaultAppRoleCredentials
 	vaultKVVersion      int
 	OutputFormat        string
 }
 
-var appCfg appConfig
+var gvs gvsConfig
 
 func init() {
 	var err error
-	//fmt.Println("starting init")
-	// get part of config from env
-	appCfg.vaultKVVersion = 2
-	appCfg.AppName = os.Getenv("GVS_APPNAME")
-	appCfg.AppEnv = os.Getenv("GVS_APPENV")
-	appCfg.VaultURL = os.Getenv("GVS_VAULTURL")
-	appCfg.SecretPath = os.Getenv("GVS_SECRETPATH")
-	appCfg.SecretFilePath = os.Getenv("GVS_SECRETFILEPATH")
-	appCfg.SecretAvailabletime = os.Getenv("GVS_SECRETAVAILABLETIME")
-	appCfg.VaultRoleID = os.Getenv("GVS_VAULTROLEID")
-	appCfg.VaultSecretID = os.Getenv("GVS_VAULTSECRETID")
-	appCfg.OutputFormat = os.Getenv("GVS_OUTPUTFORMAT")
+	// get config from env
+	gvs.vaultKVVersion = 2
+	gvs.AppName = os.Getenv("GVS_APPNAME")
+	gvs.AppEnv = os.Getenv("GVS_APPENV")
+	gvs.VaultURL = os.Getenv("GVS_VAULTURL")
+	gvs.VaultSecretPath = strings.TrimSuffix(strings.TrimPrefix(os.Getenv("GVS_SECRETPATH"), "/"), "/")
+	gvs.SecretFilePath = os.Getenv("GVS_SECRETFILEPATH")
+	gvs.SecretAvailabletime = os.Getenv("GVS_SECRETAVAILABLETIME")
+	gvs.VaultRoleID = os.Getenv("GVS_VAULTROLEID")
+	gvs.VaultSecretID = os.Getenv("GVS_VAULTSECRETID")
+	gvs.OutputFormat = os.Getenv("GVS_OUTPUTFORMAT")
 
-	if len(appCfg.SecretFilePath) == 0 {
-		appCfg.SecretFilePath = "/dev/shm/gvs"
+	// replace nil values with defaults when applicable
+	if len(gvs.SecretFilePath) == 0 {
+		gvs.SecretFilePath = "/dev/shm/gvs"
 	} else {
-		appCfg.SecretFilePath = filepath.Join(appCfg.SecretFilePath, "gvs")
+		gvs.SecretFilePath = filepath.Join(gvs.SecretFilePath, "gvs")
 	}
 
-	if len(appCfg.SecretAvailabletime) == 0 {
-		appCfg.SecretAvailabletime = "60"
+	if len(gvs.VaultSecretID) == 0 {
+		gvs.VaultSecretID = "/run/secret/secret_id"
 	}
 
-	if len(appCfg.SecretPath) == 0 {
-		// default to Vault kv v2, default secret/data path
-		appCfg.SecretPath = filepath.Join("secret/data", appCfg.AppName, appCfg.AppEnv)
-	} else {
-		secretParam := strings.Split(appCfg.SecretPath, "/")
-		if len(secretParam) == 1 {
-			// we get a name, not a full secret path -> default to Vault kv v2, default secret/data path
-			appCfg.SecretPath = filepath.Join("secret/data", secretParam[0])
-		} else {
-			// assume we got a full secret path
-			// check kv version
-			appCfg.vaultKVVersion, err = getKVVersion(secretParam[0] + "/")
-			if err != nil {
-				log.Fatal(err)
-			}
-		}
+	if len(gvs.SecretAvailabletime) == 0 {
+		gvs.SecretAvailabletime = "60"
 	}
 
-	// read secret to get Vault App Role credentials
-	if len(appCfg.VaultRoleID) == 0 {
-		appCfg.VaultRoleID = "/run/secret/role_id"
+	if len(gvs.VaultRoleID) == 0 {
+		gvs.VaultRoleID = "/run/secret/role_id"
 	}
 
-	appCfg.VaultCredentials.RoleID, err = getSecret(appCfg.VaultRoleID)
+	if len(gvs.OutputFormat) == 0 {
+		gvs.OutputFormat = "yaml"
+	}
+
+	// get Vault App Role credentials
+	gvs.VaultCredentials.RoleID, err = getSecretFromFile(gvs.VaultRoleID)
 	if err != nil {
 		log.Fatal("Error reading role_id docker secret: ", err)
 	}
 
-	if len(appCfg.VaultSecretID) == 0 {
-		appCfg.VaultSecretID = "/run/secret/secret_id"
-	}
-
-	appCfg.VaultCredentials.SecretID, err = getSecret(appCfg.VaultSecretID)
+	gvs.VaultCredentials.SecretID, err = getSecretFromFile(gvs.VaultSecretID)
 	if err != nil {
 		log.Fatal("Error reading secret_id docker secret: ", err)
 	}
-	appCfg.Token, err = auth(appCfg.VaultCredentials)
+
+	// get Vault App Role token
+	err = gvs.getVaultAppRoleToken()
 	if err != nil {
 		log.Fatal("Vault auth error: ", err)
 	}
 
-	if len(appCfg.OutputFormat) == 0 {
-		appCfg.OutputFormat = "yaml"
+	// get Vault kv version
+	if len(gvs.VaultSecretPath) == 0 {
+		// default to Vault kv v2, default secret/data path
+		gvs.VaultSecretPath = filepath.Join("secret/data", gvs.AppName, gvs.AppEnv)
+	} else {
+		secretParam := strings.Split(gvs.VaultSecretPath, "/")
+		if len(secretParam) == 1 {
+			// we get a name, not a full secret path -> default to Vault kv v2, default secret/data path
+			gvs.VaultSecretPath = filepath.Join("secret/data", secretParam[0])
+		} else {
+			// assume we got a full secret path
+			// check kv version
+			err = gvs.getKVVersion(secretParam[0] + "/")
+			if err != nil {
+				log.Fatal(err)
+			}
+			// Get the list of secrets from ENV
+			gvs.SecretList = strings.Split(os.Getenv("GVS_SECRETLIST"), ",")
+		}
 	}
 }
 
 func main() {
 	var err error
 	//fmt.Println("Checking secretfileok")
-	secretFileOK, step, errSecretFile := isSecretFilePathOK(appCfg.SecretFilePath)
+	secretFileOK, step, errSecretFile := gvs.isSecretFilePathOK()
 	if errSecretFile != nil {
 		log.Fatal(step, errSecretFile)
 	}
 	if secretFileOK {
 		//fmt.Println("secretfileok")
 		// read Vault Secrets write them in kv file
-		err = publishVaultSecret(appCfg.SecretPath)
+		err = gvs.publishVaultSecret()
 		if err != nil {
 			log.Fatal("Error processing Vault Secret:", err)
 		}
 	}
-	_ = destroySecretFile(appCfg.SecretFilePath, appCfg.SecretAvailabletime)
+	_ = destroySecretFile(gvs.SecretFilePath, gvs.SecretAvailabletime)
 }
 
-func getSecret(path string) (secret string, err error) {
+func getSecretFromFile(path string) (secret string, err error) {
 	// read from docker secret
 	dat, err := ioutil.ReadFile(filepath.Join(path))
 	if err != nil {
@@ -126,44 +131,8 @@ func getSecret(path string) (secret string, err error) {
 	return string(dat), nil
 }
 
-func mountFS(path, timeout string) error {
-	mntPath, err := exec.LookPath("mount")
-	if err != nil {
-		return (err)
-	}
-	cmd := exec.Command(mntPath, path)
-
-	var out bytes.Buffer
-	cmd.Stdout = &out
-
-	err = cmd.Run()
-	if err != nil {
-		return (err)
-	}
-	umntPath, err := exec.LookPath("umount")
-	if err != nil {
-		return (err)
-	}
-	sleepPath, err := exec.LookPath("sleep")
-	if err != nil {
-		return (err)
-	}
-
-	cmdUmount := exec.Command("/bin/sh", "-c", sleepPath+" "+timeout+" && "+umntPath+" "+path)
-	// capture STDOUT
-	cmdUmount.Stdout = &out
-
-	// run cmd
-	err = cmdUmount.Start()
-	if err != nil {
-		return (err)
-	}
-
-	return nil
-}
-
-func isSecretFilePathOK(path string) (isOK bool, step string, err error) {
-	testFile := appCfg.SecretFilePath + ".tmp"
+func (a *gvsConfig) isSecretFilePathOK() (isOK bool, step string, err error) {
+	testFile := a.SecretFilePath + ".tmp"
 	// create tmp test file
 	f, err := os.Create(testFile)
 	if err != nil {

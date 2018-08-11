@@ -8,7 +8,6 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
-	"strings"
 	"time"
 
 	"gopkg.in/yaml.v2"
@@ -17,9 +16,9 @@ import (
 var vaultAuthResponse VaultAuthResponse
 var vaultSecret VaultSecretv2
 
-func getKVVersion(name string) (version int, err error) {
+func (a *gvsConfig) getKVVersion(name string) error {
 
-	url := appCfg.VaultURL + "/v1/sys/internal/ui/mounts"
+	url := a.VaultURL + "/v1/sys/internal/ui/mounts"
 	client := http.Client{
 		Timeout: time.Second * 2, // Maximum of 2 secs
 	}
@@ -28,7 +27,7 @@ func getKVVersion(name string) (version int, err error) {
 		log.Fatal(err)
 	}
 	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("X-Vault-Token", appCfg.Token)
+	req.Header.Set("X-Vault-Token", a.VaultToken)
 
 	res, err := client.Do(req)
 	if err != nil {
@@ -52,6 +51,7 @@ func getKVVersion(name string) (version int, err error) {
 	if err != nil {
 		log.Fatal(err)
 	}
+	var version int
 	for _, v := range mountInfo {
 		if v.Name == name {
 			if len(v.Options) > 0 {
@@ -67,17 +67,18 @@ func getKVVersion(name string) (version int, err error) {
 			}
 		}
 	}
+	a.vaultKVVersion = version
 
-	return version, nil
+	return nil
 }
 
-func auth(a VaultAppRoleCredentials) (token string, err error) {
+func (a *gvsConfig) getVaultAppRoleToken() error {
 	client := http.Client{
 		Timeout: time.Second * 2, // Maximum of 2 secs
 	}
 	payload := new(bytes.Buffer)
-	json.NewEncoder(payload).Encode(a)
-	req, err := http.NewRequest("POST", appCfg.VaultURL+"/v1/auth/approle/login", payload)
+	json.NewEncoder(payload).Encode(a.VaultCredentials)
+	req, err := http.NewRequest("POST", a.VaultURL+"/v1/auth/approle/login", payload)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -96,12 +97,14 @@ func auth(a VaultAppRoleCredentials) (token string, err error) {
 	if jsonErr != nil {
 		log.Fatal(jsonErr)
 	}
+	a.VaultToken = vaultAuthResponse.Auth.ClientToken
 
-	return vaultAuthResponse.Auth.ClientToken, nil
+	return nil
 }
 
-func publishVaultSecret(path string) error {
-	url := appCfg.VaultURL + filepath.Join("/v1", appCfg.SecretPath)
+func (a *gvsConfig) getVaultSecret(path string) (kv map[string]string, err error) {
+	secretsList := make(map[string]string)
+	url := a.VaultURL + filepath.Join("/v1", path)
 	client := http.Client{
 		Timeout: time.Second * 2, // Maximum of 2 secs
 	}
@@ -110,7 +113,7 @@ func publishVaultSecret(path string) error {
 		log.Fatal(err)
 	}
 	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("X-Vault-Token", appCfg.Token)
+	req.Header.Set("X-Vault-Token", a.VaultToken)
 
 	res, err := client.Do(req)
 	if err != nil {
@@ -120,35 +123,59 @@ func publishVaultSecret(path string) error {
 	if readErr != nil {
 		log.Fatal(readErr)
 	}
-	var secretsList map[string]string
 	// parse to Vx and get a simple kv map back
-	if appCfg.vaultKVVersion == 2 {
+	if a.vaultKVVersion == 2 {
 		secretsList, err = parseKVv2(body)
 		if err != nil {
 			log.Fatal(err)
 		}
-	} else if appCfg.vaultKVVersion == 1 {
+	} else if a.vaultKVVersion == 1 {
 		secretsList, err = parseKVv1(body)
 		if err != nil {
 			log.Fatal(err)
 		}
 	}
+	return secretsList, nil
+}
+
+func (a *gvsConfig) publishVaultSecret() error {
+	secretsList := make(map[string]string)
+
+	if len(a.SecretList[0]) > 0 {
+		for _, v := range a.SecretList {
+			kvMap, err := a.getVaultSecret(filepath.Join(a.VaultSecretPath, v))
+			if err != nil {
+				return err
+			}
+			for k, v := range kvMap {
+				secretsList[k] = v
+			}
+		}
+	} else {
+		kvMap, err := a.getVaultSecret(a.VaultSecretPath)
+		if err != nil {
+			return err
+		}
+		for k, v := range kvMap {
+			secretsList[k] = v
+		}
+	}
 
 	// create the secret file
-	f, err := os.Create(appCfg.SecretFilePath)
+	f, err := os.Create(a.SecretFilePath)
 	if err != nil {
 		log.Fatal(err)
 	}
 	defer f.Close()
-	if appCfg.OutputFormat == "yaml" {
+	if a.OutputFormat == "yaml" {
 		output, _ := yaml.Marshal(&secretsList)
 		_, _ = f.Write(output)
 	} else {
 		for k, v := range secretsList {
-			_, _ = f.WriteString(strings.ToUpper(k) + "=" + v + "\n")
+			_, _ = f.WriteString(k + "=" + v + "\n")
 		}
-		f.Sync()
 	}
+	f.Sync()
 	return err
 
 }
@@ -179,4 +206,19 @@ func parseKVv1(rawSecret []byte) (gs map[string]string, err error) {
 	}
 
 	return gs, nil
+}
+
+// UnmarshalJSON unmarshal Vault JSON response to /v1/sys/internal/ui/mounts
+func (p *VaultSecretMounts) UnmarshalJSON(data []byte) error {
+	var transient = make(map[string]*VaultSecretMount)
+
+	err := json.Unmarshal(data, &transient)
+	if err != nil {
+		return err
+	}
+	for k, v := range transient {
+		v.Name = k
+		(*p)[k] = v
+	}
+	return nil
 }

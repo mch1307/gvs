@@ -20,6 +20,9 @@ GVS_SECRETPATH              Path to the Vault secret.
                             Defaults to secret/data/appName-env (kv v2)
                             Can be the "name" of the secret (last part of the path) or the complete secret path.
                             In case only the last part is provided, gvs will assume kv v2 is used.
+GVS_SECRETLIST              List of secrets the application needs to read.
+                            Only if GVS_SECRETPATH is a complete path.
+                            Docker run does not support array env variable, so this should be stored in the image itself.
 GVS_SECRETTARGETPATH        Path where the secret kv file will be written  (default /dev/shm)
 GVS_SECRETAVAILABLETIME     Number of seconds after which the secret file will be destroyed
 GVS_VAULTROLEID             Path to file containing the Vault role id (default run/secret/role_id)

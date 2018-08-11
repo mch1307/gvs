@@ -16,8 +16,9 @@
             "env": 
                 {"GVS_VAULTURL":"http://127.0.0.1:8200",
                  "GVS_APPNAME": "demo",
-                 "GVS_SECRETS":"secret1",
-                 "GVS_APPENV":"dev"}
+                 "GVS_APPENV":"dev",
+                "GVS_SECRETPATH":"kv/demo",
+                "GVS_SECRETLIST":"dev,mysecret"}
             ,
             "args": [],
             "showLog": true

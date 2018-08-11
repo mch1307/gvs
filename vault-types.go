@@ -26,21 +26,6 @@ type VaultSecretMount struct {
 // used to parse the Vault JSON response to /v1/sys/internal/ui/mounts
 type VaultSecretMounts map[string]*VaultSecretMount
 
-// UnmarshalJSON unmarshal Vault JSON response to /v1/sys/internal/ui/mounts
-func (p *VaultSecretMounts) UnmarshalJSON(data []byte) error {
-	var transient = make(map[string]*VaultSecretMount)
-
-	err := json.Unmarshal(data, &transient)
-	if err != nil {
-		return err
-	}
-	for k, v := range transient {
-		v.Name = k
-		(*p)[k] = v
-	}
-	return nil
-}
-
 // VaultMountListRespone holds the Vault Response to mounts info
 type VaultMountListRespone struct {
 	RequestID     string `json:"request_id"`
