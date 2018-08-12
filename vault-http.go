@@ -4,17 +4,47 @@ import (
 	"bytes"
 	"encoding/json"
 	"io/ioutil"
-	"log"
 	"net/http"
 	"os"
 	"path/filepath"
 	"time"
 
+	"github.com/pkg/errors"
 	"gopkg.in/yaml.v2"
 )
 
 var vaultAuthResponse VaultAuthResponse
 var vaultSecret VaultSecretv2
+
+func (a *gvsConfig) getVaultAppRoleToken() error {
+	client := http.Client{
+		Timeout: time.Second * 2, // Maximum of 2 secs
+	}
+	payload := new(bytes.Buffer)
+	json.NewEncoder(payload).Encode(a.VaultCredentials)
+	req, err := http.NewRequest("POST", a.VaultURL+"/v1/auth/approle/login", payload)
+	if err != nil {
+		return errors.Wrap(errors.WithStack(err), errInfo())
+	}
+	req.Header.Set("Content-Type", "application/json")
+
+	res, err := client.Do(req)
+	if err != nil {
+		return errors.Wrap(errors.WithStack(err), errInfo())
+	}
+
+	body, readErr := ioutil.ReadAll(res.Body)
+	if readErr != nil {
+		return errors.Wrap(errors.WithStack(err), errInfo())
+	}
+	jsonErr := json.Unmarshal(body, &vaultAuthResponse)
+	if jsonErr != nil {
+		return errors.Wrap(errors.WithStack(err), errInfo())
+	}
+	a.VaultToken = vaultAuthResponse.Auth.ClientToken
+
+	return nil
+}
 
 func (a *gvsConfig) getKVVersion(name string) error {
 
@@ -24,32 +54,32 @@ func (a *gvsConfig) getKVVersion(name string) error {
 	}
 	req, err := http.NewRequest(http.MethodGet, url, nil)
 	if err != nil {
-		log.Fatal(err)
+		return errors.Wrap(errors.WithStack(err), errInfo())
 	}
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("X-Vault-Token", a.VaultToken)
 
 	res, err := client.Do(req)
 	if err != nil {
-		log.Fatal(err)
+		return errors.Wrap(errors.WithStack(err), errInfo())
 	}
 	body, readErr := ioutil.ReadAll(res.Body)
 	if readErr != nil {
-		log.Fatal(readErr)
+		return errors.Wrap(errors.WithStack(readErr), errInfo())
 	}
 
 	var vaultRsp VaultMountListRespone
 
 	jsonErr := json.Unmarshal(body, &vaultRsp)
 	if jsonErr != nil {
-		log.Fatal(jsonErr)
+		return errors.Wrap(errors.WithStack(jsonErr), errInfo())
 	}
 
 	var mountInfo VaultSecretMounts = make(map[string]*VaultSecretMount)
 
 	err = mountInfo.UnmarshalJSON([]byte(vaultRsp.Data.Secret))
 	if err != nil {
-		log.Fatal(err)
+		return errors.Wrap(errors.WithStack(err), errInfo())
 	}
 	var version int
 	for _, v := range mountInfo {
@@ -72,72 +102,6 @@ func (a *gvsConfig) getKVVersion(name string) error {
 	return nil
 }
 
-func (a *gvsConfig) getVaultAppRoleToken() error {
-	client := http.Client{
-		Timeout: time.Second * 2, // Maximum of 2 secs
-	}
-	payload := new(bytes.Buffer)
-	json.NewEncoder(payload).Encode(a.VaultCredentials)
-	req, err := http.NewRequest("POST", a.VaultURL+"/v1/auth/approle/login", payload)
-	if err != nil {
-		log.Fatal(err)
-	}
-	req.Header.Set("Content-Type", "application/json")
-
-	res, err := client.Do(req)
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	body, readErr := ioutil.ReadAll(res.Body)
-	if readErr != nil {
-		log.Fatal(readErr)
-	}
-	jsonErr := json.Unmarshal(body, &vaultAuthResponse)
-	if jsonErr != nil {
-		log.Fatal(jsonErr)
-	}
-	a.VaultToken = vaultAuthResponse.Auth.ClientToken
-
-	return nil
-}
-
-func (a *gvsConfig) getVaultSecret(path string) (kv map[string]string, err error) {
-	secretsList := make(map[string]string)
-	url := a.VaultURL + filepath.Join("/v1", path)
-	client := http.Client{
-		Timeout: time.Second * 2, // Maximum of 2 secs
-	}
-	req, err := http.NewRequest(http.MethodGet, url, nil)
-	if err != nil {
-		log.Fatal(err)
-	}
-	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("X-Vault-Token", a.VaultToken)
-
-	res, err := client.Do(req)
-	if err != nil {
-		log.Fatal(err)
-	}
-	body, readErr := ioutil.ReadAll(res.Body)
-	if readErr != nil {
-		log.Fatal(readErr)
-	}
-	// parse to Vx and get a simple kv map back
-	if a.vaultKVVersion == 2 {
-		secretsList, err = parseKVv2(body)
-		if err != nil {
-			log.Fatal(err)
-		}
-	} else if a.vaultKVVersion == 1 {
-		secretsList, err = parseKVv1(body)
-		if err != nil {
-			log.Fatal(err)
-		}
-	}
-	return secretsList, nil
-}
-
 func (a *gvsConfig) publishVaultSecret() error {
 	secretsList := make(map[string]string)
 
@@ -145,7 +109,7 @@ func (a *gvsConfig) publishVaultSecret() error {
 		for _, v := range a.SecretList {
 			kvMap, err := a.getVaultSecret(filepath.Join(a.VaultSecretPath, v))
 			if err != nil {
-				return err
+				return errors.Wrap(errors.WithStack(err), errInfo())
 			}
 			for k, v := range kvMap {
 				secretsList[k] = v
@@ -154,7 +118,7 @@ func (a *gvsConfig) publishVaultSecret() error {
 	} else {
 		kvMap, err := a.getVaultSecret(a.VaultSecretPath)
 		if err != nil {
-			return err
+			return errors.Wrap(errors.WithStack(err), errInfo())
 		}
 		for k, v := range kvMap {
 			secretsList[k] = v
@@ -164,7 +128,7 @@ func (a *gvsConfig) publishVaultSecret() error {
 	// create the secret file
 	f, err := os.Create(a.SecretFilePath)
 	if err != nil {
-		log.Fatal(err)
+		return errors.Wrap(errors.WithStack(err), errInfo())
 	}
 	defer f.Close()
 	if a.OutputFormat == "yaml" {
@@ -180,12 +144,48 @@ func (a *gvsConfig) publishVaultSecret() error {
 
 }
 
+func (a *gvsConfig) getVaultSecret(path string) (kv map[string]string, err error) {
+	secretsList := make(map[string]string)
+	url := a.VaultURL + filepath.Join("/v1", path)
+	client := http.Client{
+		Timeout: time.Second * 2, // Maximum of 2 secs
+	}
+	req, err := http.NewRequest(http.MethodGet, url, nil)
+	if err != nil {
+		return secretsList, errors.Wrap(errors.WithStack(err), errInfo())
+	}
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("X-Vault-Token", a.VaultToken)
+
+	res, err := client.Do(req)
+	if err != nil {
+		return secretsList, errors.Wrap(errors.WithStack(err), errInfo())
+	}
+	body, readErr := ioutil.ReadAll(res.Body)
+	if readErr != nil {
+		return secretsList, errors.Wrap(errors.WithStack(err), errInfo())
+	}
+	// parse to Vx and get a simple kv map back
+	if a.vaultKVVersion == 2 {
+		secretsList, err = parseKVv2(body)
+		if err != nil {
+			return secretsList, errors.Wrap(errors.WithStack(err), errInfo())
+		}
+	} else if a.vaultKVVersion == 1 {
+		secretsList, err = parseKVv1(body)
+		if err != nil {
+			return secretsList, errors.Wrap(errors.WithStack(err), errInfo())
+		}
+	}
+	return secretsList, nil
+}
+
 func parseKVv2(rawSecret []byte) (gs map[string]string, err error) {
 	var secret VaultSecretv2
 	gs = make(map[string]string)
 	err = json.Unmarshal(rawSecret, &secret)
 	if err != nil {
-		log.Fatal(err)
+		return gs, errors.Wrap(errors.WithStack(err), errInfo())
 	}
 	for k, v := range secret.Data.Data {
 		gs[k] = v
@@ -199,7 +199,7 @@ func parseKVv1(rawSecret []byte) (gs map[string]string, err error) {
 	gs = make(map[string]string)
 	err = json.Unmarshal(rawSecret, &secret)
 	if err != nil {
-		log.Fatal(err)
+		return gs, errors.Wrap(errors.WithStack(err), errInfo())
 	}
 	for k, v := range secret.Data {
 		gs[k] = v
@@ -214,7 +214,7 @@ func (p *VaultSecretMounts) UnmarshalJSON(data []byte) error {
 
 	err := json.Unmarshal(data, &transient)
 	if err != nil {
-		return err
+		return errors.Wrap(errors.WithStack(err), errInfo())
 	}
 	for k, v := range transient {
 		v.Name = k

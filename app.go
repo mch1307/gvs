@@ -6,7 +6,11 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
+	"strconv"
 	"strings"
+
+	"github.com/pkg/errors"
 )
 
 // holds our config
@@ -24,6 +28,14 @@ type gvsConfig struct {
 	VaultCredentials    VaultAppRoleCredentials
 	vaultKVVersion      int
 	OutputFormat        string
+}
+
+func errInfo() (info string) {
+	pc := make([]uintptr, 15)
+	n := runtime.Callers(2, pc)
+	frames := runtime.CallersFrames(pc[:n])
+	frame, _ := frames.Next()
+	return frame.Function + ":" + strconv.Itoa(frame.Line)
 }
 
 var gvs gvsConfig
@@ -107,16 +119,16 @@ func init() {
 func main() {
 	var err error
 	//fmt.Println("Checking secretfileok")
-	secretFileOK, step, errSecretFile := gvs.isSecretFilePathOK()
+	secretFileOK, errSecretFile := gvs.isSecretFilePathOK()
 	if errSecretFile != nil {
-		log.Fatal(step, errSecretFile)
+		log.Fatal(errors.WithStack(errSecretFile))
 	}
 	if secretFileOK {
-		//fmt.Println("secretfileok")
 		// read Vault Secrets write them in kv file
 		err = gvs.publishVaultSecret()
 		if err != nil {
-			log.Fatal("Error processing Vault Secret:", err)
+			//log.Fatalf("%+v", errors.WithStack(err))
+			log.Fatal(errors.WithStack(err))
 		}
 	}
 	_ = destroySecretFile(gvs.SecretFilePath, gvs.SecretAvailabletime)
@@ -126,23 +138,23 @@ func getSecretFromFile(path string) (secret string, err error) {
 	// read from docker secret
 	dat, err := ioutil.ReadFile(filepath.Join(path))
 	if err != nil {
-		return "", err
+		return "", errors.Wrap(err, errInfo())
 	}
 	return string(dat), nil
 }
 
-func (a *gvsConfig) isSecretFilePathOK() (isOK bool, step string, err error) {
+func (a *gvsConfig) isSecretFilePathOK() (isOK bool, err error) {
 	testFile := a.SecretFilePath + ".tmp"
 	// create tmp test file
 	f, err := os.Create(testFile)
 	if err != nil {
-		return false, "Create File", err
+		return false, errors.Wrap(err, errInfo())
 	}
 	defer f.Close()
 
 	_, err = f.WriteString("test\n")
 	if err != nil {
-		return false, "Write File", err
+		return false, errors.Wrap(err, errInfo())
 	}
 
 	f.Sync()
@@ -150,27 +162,27 @@ func (a *gvsConfig) isSecretFilePathOK() (isOK bool, step string, err error) {
 	// remove tmp test file
 	err = destroySecretFile(testFile, "0")
 	if err != nil {
-		return false, "Destroy File", err
+		return false, errors.Wrap(err, errInfo())
 	}
-	return true, "", nil
+	return true, nil
 
 }
 
 func destroySecretFile(path, delay string) error {
 	rmPath, err := exec.LookPath("rm")
 	if err != nil {
-		return (err)
+		return errors.Wrap(err, errInfo())
 	}
 
 	sleepPath, err := exec.LookPath("sleep")
 	if err != nil {
-		return (err)
+		return errors.Wrap(err, errInfo())
 	}
 
 	cmdUmount := exec.Command("/bin/sh", "-c", sleepPath+" "+delay+" && "+rmPath+" "+path)
 	err = cmdUmount.Start()
 	if err != nil {
-		return (err)
+		return errors.Wrap(err, errInfo())
 	}
 
 	return nil
