@@ -127,6 +127,11 @@ func (a *gvsConfig) publishVaultSecret() error {
 			secretsList[k] = v
 		}
 	}
+
+	// add GVS_APPNAME & GVS_APPENV to secretfile
+	secretsList["GVS_APPNAME"] = gvs.AppName
+	secretsList["GVS_APPENV"] = gvs.AppEnv
+
 	log.Debugf("our secretsList: %v", secretsList)
 	// create the secret file
 	f, err := os.Create(a.SecretFilePath)
