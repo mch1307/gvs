@@ -2,7 +2,6 @@ package main
 
 import (
 	"io/ioutil"
-	"log"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -10,24 +9,26 @@ import (
 	"strconv"
 	"strings"
 
+	log "github.com/Sirupsen/logrus"
 	"github.com/pkg/errors"
 )
 
 // holds our config
 type gvsConfig struct {
-	AppName             string   // get from $GVS_APP
-	AppEnv              string   // get from $GVS_APPENV
-	VaultURL            string   // get from $GVS_VAULTADDR
-	VaultSecretPath     string   // get from $GVS_SECRETPATH, computed if not provided
-	VaultRoleID         string   // get from $GVS_VAULTROLEID, default
-	VaultSecretID       string   // get from $GVS_VAULTSECRETID, default
-	SecretFilePath      string   // default: /mnt/ramfs
-	SecretAvailabletime string   // default: 60 sec
-	SecretList          []string // list of secrets the application want to get
+	AppName             string
+	AppEnv              string
+	VaultURL            string
+	VaultSecretPath     string
+	VaultRoleID         string
+	VaultSecretID       string
+	SecretFilePath      string
+	SecretAvailabletime string
+	SecretList          []string
 	VaultToken          string
 	VaultCredentials    VaultAppRoleCredentials
-	vaultKVVersion      int
+	VaultKvVersion      string
 	OutputFormat        string
+	LogLevel            string
 }
 
 func errInfo() (info string) {
@@ -43,7 +44,7 @@ var gvs gvsConfig
 func init() {
 	var err error
 	// get config from env
-	gvs.vaultKVVersion = 2
+	gvs.VaultKvVersion = "2"
 	gvs.AppName = os.Getenv("GVS_APPNAME")
 	gvs.AppEnv = os.Getenv("GVS_APPENV")
 	gvs.VaultURL = os.Getenv("GVS_VAULTURL")
@@ -53,6 +54,17 @@ func init() {
 	gvs.VaultRoleID = os.Getenv("GVS_VAULTROLEID")
 	gvs.VaultSecretID = os.Getenv("GVS_VAULTSECRETID")
 	gvs.OutputFormat = os.Getenv("GVS_OUTPUTFORMAT")
+	gvs.LogLevel = os.Getenv("GVS_LOGLEVEL")
+
+	// initialize logger
+	log.SetFormatter(&log.TextFormatter{})
+	if strings.ToUpper(gvs.LogLevel) != "DEBUG" {
+		gvs.LogLevel = "INFO"
+	}
+	logLevel, _ := log.ParseLevel(gvs.LogLevel)
+	log.SetOutput(os.Stdout)
+	log.SetLevel(logLevel)
+	log.Info("Starting gvs...")
 
 	// replace nil values with defaults when applicable
 	if len(gvs.SecretFilePath) == 0 {
@@ -97,12 +109,12 @@ func init() {
 	// get Vault kv version
 	if len(gvs.VaultSecretPath) == 0 {
 		// default to Vault kv v2, default secret/data path
-		gvs.VaultSecretPath = filepath.Join("secret/data", gvs.AppName, gvs.AppEnv)
+		gvs.VaultSecretPath = "secret/data/" + gvs.AppName + "-" + gvs.AppEnv
 	} else {
 		secretParam := strings.Split(gvs.VaultSecretPath, "/")
 		if len(secretParam) == 1 {
 			// we get a name, not a full secret path -> default to Vault kv v2, default secret/data path
-			gvs.VaultSecretPath = filepath.Join("secret/data", secretParam[0])
+			gvs.VaultSecretPath = "secret/data/" + secretParam[0]
 		} else {
 			// assume we got a full secret path
 			// check kv version
@@ -111,9 +123,14 @@ func init() {
 				log.Fatal(err)
 			}
 			// Get the list of secrets from ENV
-			gvs.SecretList = strings.Split(os.Getenv("GVS_SECRETLIST"), ",")
+			if len(os.Getenv("GVS_SECRETLIST")) > 0 {
+				gvs.SecretList = strings.Split(os.Getenv("GVS_SECRETLIST"), ",")
+			}
 		}
 	}
+
+	log.Debugf("gvs config: %+v", gvs.AppName)
+
 }
 
 func main() {
@@ -136,7 +153,7 @@ func main() {
 
 func getSecretFromFile(path string) (secret string, err error) {
 	// read from docker secret
-	dat, err := ioutil.ReadFile(filepath.Join(path))
+	dat, err := ioutil.ReadFile(path)
 	if err != nil {
 		return "", errors.Wrap(err, errInfo())
 	}

@@ -6,9 +6,9 @@ import (
 	"io/ioutil"
 	"net/http"
 	"os"
-	"path/filepath"
 	"time"
 
+	log "github.com/Sirupsen/logrus"
 	"github.com/pkg/errors"
 	"gopkg.in/yaml.v2"
 )
@@ -37,10 +37,12 @@ func (a *gvsConfig) getVaultAppRoleToken() error {
 	if readErr != nil {
 		return errors.Wrap(errors.WithStack(err), errInfo())
 	}
+
 	jsonErr := json.Unmarshal(body, &vaultAuthResponse)
 	if jsonErr != nil {
 		return errors.Wrap(errors.WithStack(err), errInfo())
 	}
+
 	a.VaultToken = vaultAuthResponse.Auth.ClientToken
 
 	return nil
@@ -49,6 +51,7 @@ func (a *gvsConfig) getVaultAppRoleToken() error {
 func (a *gvsConfig) getKVVersion(name string) error {
 
 	url := a.VaultURL + "/v1/sys/internal/ui/mounts"
+	log.Debug("vault url: ", a.VaultURL+"/v1/sys/internal/ui/mounts")
 	client := http.Client{
 		Timeout: time.Second * 2, // Maximum of 2 secs
 	}
@@ -74,40 +77,40 @@ func (a *gvsConfig) getKVVersion(name string) error {
 	if jsonErr != nil {
 		return errors.Wrap(errors.WithStack(jsonErr), errInfo())
 	}
-
+	log.Debug("Vault mounts: ", string(body))
 	var mountInfo VaultSecretMounts = make(map[string]*VaultSecretMount)
 
 	err = mountInfo.UnmarshalJSON([]byte(vaultRsp.Data.Secret))
 	if err != nil {
 		return errors.Wrap(errors.WithStack(err), errInfo())
 	}
-	var version int
+	var version string
 	for _, v := range mountInfo {
 		if v.Name == name {
+			log.Debugf("Selected Vault mount: %+v", v)
 			if len(v.Options) > 0 {
 				switch v.Options["version"].(type) {
-				case int:
-					version = v.Options["version"].(int)
+				case string:
+					version = v.Options["version"].(string)
 				default:
-					version = 1
+					version = "1"
 				}
 			} else {
 				//kv v1
-				version = 1
+				version = "1"
 			}
 		}
 	}
-	a.vaultKVVersion = version
-
+	a.VaultKvVersion = version
+	log.Debugf("%v is vault kv v %v", name, version)
 	return nil
 }
 
 func (a *gvsConfig) publishVaultSecret() error {
 	secretsList := make(map[string]string)
-
-	if len(a.SecretList[0]) > 0 {
+	if len(a.SecretList) > 0 {
 		for _, v := range a.SecretList {
-			kvMap, err := a.getVaultSecret(filepath.Join(a.VaultSecretPath, v))
+			kvMap, err := a.getVaultSecret(a.VaultSecretPath + "/" + v)
 			if err != nil {
 				return errors.Wrap(errors.WithStack(err), errInfo())
 			}
@@ -124,7 +127,7 @@ func (a *gvsConfig) publishVaultSecret() error {
 			secretsList[k] = v
 		}
 	}
-
+	log.Debugf("our secretsList: %v", secretsList)
 	// create the secret file
 	f, err := os.Create(a.SecretFilePath)
 	if err != nil {
@@ -146,7 +149,8 @@ func (a *gvsConfig) publishVaultSecret() error {
 
 func (a *gvsConfig) getVaultSecret(path string) (kv map[string]string, err error) {
 	secretsList := make(map[string]string)
-	url := a.VaultURL + filepath.Join("/v1", path)
+	url := a.VaultURL + "/v1/" + path
+	log.Debug("Vault url: ", url)
 	client := http.Client{
 		Timeout: time.Second * 2, // Maximum of 2 secs
 	}
@@ -162,21 +166,24 @@ func (a *gvsConfig) getVaultSecret(path string) (kv map[string]string, err error
 		return secretsList, errors.Wrap(errors.WithStack(err), errInfo())
 	}
 	body, readErr := ioutil.ReadAll(res.Body)
+	log.Debugf("Vault response: %v", string(body))
 	if readErr != nil {
 		return secretsList, errors.Wrap(errors.WithStack(err), errInfo())
 	}
+	log.Debugf("Vault kv at %v is v%v, sending to parse function", path, a.VaultKvVersion)
 	// parse to Vx and get a simple kv map back
-	if a.vaultKVVersion == 2 {
+	if a.VaultKvVersion == "2" {
 		secretsList, err = parseKVv2(body)
 		if err != nil {
 			return secretsList, errors.Wrap(errors.WithStack(err), errInfo())
 		}
-	} else if a.vaultKVVersion == 1 {
+	} else if a.VaultKvVersion == "1" {
 		secretsList, err = parseKVv1(body)
 		if err != nil {
 			return secretsList, errors.Wrap(errors.WithStack(err), errInfo())
 		}
 	}
+	log.Debugf("%+v", secretsList)
 	return secretsList, nil
 }
 
