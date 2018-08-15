@@ -148,7 +148,9 @@ func main() {
 			log.Fatal(errors.WithStack(err))
 		}
 	}
+	log.Infof("Secret File Created at %v", gvs.SecretFilePath)
 	_ = destroySecretFile(gvs.SecretFilePath, gvs.SecretAvailabletime)
+	log.Infof("Will be removed in %v seconds", gvs.SecretAvailabletime)
 }
 
 func getSecretFromFile(path string) (secret string, err error) {
