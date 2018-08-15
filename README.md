@@ -1,10 +1,22 @@
 # gvs
 
-Simple container utility to read Vault secrets for a given application. Will put the secret(s) in a file and remove this file after x seconds.
+Simple (linux) container utility to read Vault secrets for a given application. Will put the secret(s) in a file and remove this file after x seconds.
 
 Support secrets stored as key/value for both kv v1 and v2.
 
-## Pre Requisites
+## Use Case
+
+A containerized application needs to get secrets from Vault at runtime. The application cannot directly access Vault.
+
+The secrets cannot be stored in the image, nor in its source code.
+
+Create a Vault app role with relevant privileges, create docker or kubernetes secrets to store the role_id and secret_id.
+
+`gvs` will authenticate to Vault with the provided role_id / secret_id and read the application secret(s).
+
+The secret will be stored in a file so that the application can easily access them. This file will be erased after X seconds (60 by default)
+
+## Prerequisites
 
 * `sleep` and `rm` should be available in user PATH
 
@@ -74,7 +86,7 @@ Specify the environment dependent, non sensitive variables when running your con
 
 Assuming the app and secrets list are stored in the docker image, gvs will get the `GVS_APPENV` and `GVS_VAULTURL` from the docker run command.
 
-It will use them to connect to the right Vault cluster, read the application's secrets available at `$GVS_VAULTURL/v1/secret/data/demo-dev` and write them to `/mnt/ramfs/gvs` so that your app can read them. After `$GVS_SECRETAVAILABLETIME` this file will be removed.
+It will use them to connect to the right Vault cluster, read the application's secrets available at `$GVS_VAULTURL/v1/secret/data/demo-dev` and write them to `/dev/shm/gvs` so that your app can read them. After `$GVS_SECRETAVAILABLETIME` this file will be removed.
 
 ```bash
 MYSECRET1=mysecrevalue1
