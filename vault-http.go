@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
 	"io/ioutil"
 	"net/http"
 	"os"
@@ -22,7 +23,8 @@ func (a *gvsConfig) getVaultAppRoleToken() error {
 	}
 	payload := new(bytes.Buffer)
 	json.NewEncoder(payload).Encode(a.VaultCredentials)
-	req, err := http.NewRequest("POST", a.VaultURL+"/v1/auth/approle/login", payload)
+	url := a.VaultURL + "/v1/auth/approle/login"
+	req, err := http.NewRequest("POST", url, payload)
 	if err != nil {
 		return errors.Wrap(errors.WithStack(err), errInfo())
 	}
@@ -36,6 +38,11 @@ func (a *gvsConfig) getVaultAppRoleToken() error {
 	body, readErr := ioutil.ReadAll(res.Body)
 	if readErr != nil {
 		return errors.Wrap(errors.WithStack(err), errInfo())
+	}
+
+	if res.StatusCode != http.StatusOK {
+		httpErr := fmt.Sprintf("Vault http call %v returned %v. Body: %v", url, res.Status, string(body))
+		return errors.New(httpErr)
 	}
 
 	jsonErr := json.Unmarshal(body, &vaultAuthResponse)
@@ -69,6 +76,11 @@ func (a *gvsConfig) getKVVersion(name string) error {
 	body, readErr := ioutil.ReadAll(res.Body)
 	if readErr != nil {
 		return errors.Wrap(errors.WithStack(readErr), errInfo())
+	}
+
+	if res.StatusCode != http.StatusOK {
+		httpErr := fmt.Sprintf("Vault http call %v returned %v. Body: %v", url, res.Status, string(body))
+		return errors.New(httpErr)
 	}
 
 	var vaultRsp VaultMountListRespone
@@ -170,7 +182,14 @@ func (a *gvsConfig) getVaultSecret(path string) (kv map[string]string, err error
 	if err != nil {
 		return secretsList, errors.Wrap(errors.WithStack(err), errInfo())
 	}
+
 	body, readErr := ioutil.ReadAll(res.Body)
+
+	if res.StatusCode != http.StatusOK {
+		httpErr := fmt.Sprintf("Vault http call %v returned %v. Body: %v", url, res.Status, string(body))
+		return secretsList, errors.New(httpErr)
+	}
+
 	log.Debugf("Vault response: %v", string(body))
 	if readErr != nil {
 		return secretsList, errors.Wrap(errors.WithStack(err), errInfo())
