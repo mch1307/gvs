@@ -144,7 +144,9 @@ func (a *gvsConfig) publishVaultSecret() error {
 	secretsList["GVS_APPNAME"] = gvs.AppName
 	secretsList["GVS_APPENV"] = gvs.AppEnv
 
-	log.Debugf("our secretsList: %v", secretsList)
+	for kd, vd := range secretsList {
+		log.Debugf("Populated secret: %v = %v (value hidden)", kd, generateRandomString(len(vd)))
+	}
 	// create the secret file
 	f, err := os.Create(a.SecretFilePath)
 	if err != nil {
@@ -190,7 +192,7 @@ func (a *gvsConfig) getVaultSecret(path string) (kv map[string]string, err error
 		return secretsList, errors.New(httpErr)
 	}
 
-	log.Debugf("Vault response: %v", string(body))
+	log.Debugf("Vault HTTP response code: %v", res.Status)
 	if readErr != nil {
 		return secretsList, errors.Wrap(errors.WithStack(err), errInfo())
 	}
@@ -207,7 +209,7 @@ func (a *gvsConfig) getVaultSecret(path string) (kv map[string]string, err error
 			return secretsList, errors.Wrap(errors.WithStack(err), errInfo())
 		}
 	}
-	log.Debugf("%+v", secretsList)
+
 	return secretsList, nil
 }
 
