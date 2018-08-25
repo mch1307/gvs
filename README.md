@@ -24,7 +24,7 @@ The secret will be stored in a file so that the application can easily access th
 
 When started, `gvs` will first read it's parameters from `GVS_` prefixed environment variables.
 
-```
+```bash
 GVS_APPNAME                 Name of your application (ideally stored in the container)
 GVS_APPENV                  Environment where the app will run (ie dev, test,..)
 GVS_VAULTURL                URL of the Vault server
@@ -49,7 +49,6 @@ Before reading the Vault secret kv(s), it will build the path from the `GVS_APPN
 After having read the secret kv(s) from Vault, it will write a file called `gvs` at `GVS_SECRETFILEPATH`. This file will contain the kv(s) from Vault in the form `key=value`, as in Vault.
 
 This file will be deleted after `GVS_SECRETAVAILABLETIME` number of seconds.
-
 
 ## Example
 
@@ -95,4 +94,8 @@ MYSECRET2=mysecrevalue2
 
 ## Build
 
-`CGO_ENABLED="0" GOARCH="amd64" GOOS="linux" go build -a -installsuffix cgo -o gvs -ldflags="-s -w"`
+```
+VERSION=$(git log -n1 --pretty="format:%d" | sed "s/, /\n/g" | grep tag: | sed "s/tag: \|)//g") && \
+VERSION=$VERSION-$(git log -1 --pretty=format:%h) && \
+CGO_ENABLED="0" GOARCH="amd64" GOOS="linux" go build -a -installsuffix cgo -o gvs -ldflags="-s -w -X main.version=$VERSION"
+```

@@ -42,6 +42,7 @@ func errInfo() (info string) {
 }
 
 var gvs gvsConfig
+var version string
 
 func init() {
 	var err error
@@ -66,7 +67,7 @@ func init() {
 	logLevel, _ := log.ParseLevel(gvs.LogLevel)
 	log.SetOutput(os.Stdout)
 	log.SetLevel(logLevel)
-	log.Info("Starting gvs...")
+	log.Infof("Starting gvs verion %v", version)
 
 	// replace nil values with defaults when applicable
 	if len(gvs.SecretFilePath) == 0 {
