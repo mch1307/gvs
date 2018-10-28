@@ -11,8 +11,8 @@ import (
 	"strings"
 	"time"
 
-	log "github.com/Sirupsen/logrus"
 	"github.com/pkg/errors"
+	log "github.com/sirupsen/logrus"
 )
 
 // holds our config
@@ -77,7 +77,7 @@ func init() {
 	}
 
 	if len(gvs.VaultSecretID) == 0 {
-		gvs.VaultSecretID = "/run/secret/secret_id"
+		gvs.VaultSecretID = "/run/secrets/secret_id"
 	}
 
 	if len(gvs.SecretAvailabletime) == 0 {
@@ -85,7 +85,7 @@ func init() {
 	}
 
 	if len(gvs.VaultRoleID) == 0 {
-		gvs.VaultRoleID = "/run/secret/role_id"
+		gvs.VaultRoleID = "/run/secrets/role_id"
 	}
 
 	if len(gvs.OutputFormat) == 0 {
