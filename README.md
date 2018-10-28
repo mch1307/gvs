@@ -37,12 +37,12 @@ GVS_SECRETLIST              List of secrets the application needs to read.
                             Docker run does not support array env variable, so this should be stored in the image itself.
 GVS_SECRETTARGETPATH        Path where the secret kv file will be written  (default /dev/shm)
 GVS_SECRETAVAILABLETIME     Number of seconds after which the secret file will be destroyed
-GVS_VAULTROLEID             Path to file containing the Vault role id (default run/secret/role_id)
-GVS_VAULTROLESECRETID       Path to file containing the Vault secret id (default /run/secret/secret_id)
+GVS_VAULTROLEID             Path to file containing the Vault role id (default run/secrets/role_id)
+GVS_VAULTROLESECRETID       Path to file containing the Vault secret id (default /run/secrets/secret_id)
 GVS_OUTPUTFORMAT            yaml by default, key=value text if any other value supplied
 ```
 
-`gvs` will read the Vault role_id and secret_id from files secrets. By convention, those should be called role_id and secret_id and mounted in `/run/secret/role_id` and `/run/secret/secret_id` (docker secret). This can be overriden by specifying the full file path in `GVS_VAULTROLEID` and `GVS_VAULTSECRETID` env variables.
+`gvs` will read the Vault role_id and secret_id from files secrets. By convention, those should be called role_id and secret_id and mounted in `/run/secrets/role_id` and `/run/secrets/secret_id` (docker secret). This can be overriden by specifying the full file path in `GVS_VAULTROLEID` and `GVS_VAULTSECRETID` env variables.
 
 Before reading the Vault secret kv(s), it will build the path from the `GVS_APPNAME` and `GVS_APPENV` variables, unless the `GVS_SECRETPATH` is specified.
 
