@@ -44,7 +44,7 @@ func errInfo() (info string) {
 var gvs gvsConfig
 var version string
 
-func init() {
+func Init() {
 	var err error
 	// get config from env
 	gvs.VaultKvVersion = "2"
@@ -137,6 +137,7 @@ func init() {
 }
 
 func main() {
+	Init()
 	var err error
 	//fmt.Println("Checking secretfileok")
 	secretFileOK, errSecretFile := gvs.isSecretFilePathOK()
