@@ -73,6 +73,7 @@ func (a *gvsConfig) getKVVersion(name string) error {
 	if err != nil {
 		return errors.Wrap(errors.WithStack(err), errInfo())
 	}
+
 	body, readErr := ioutil.ReadAll(res.Body)
 	if readErr != nil {
 		return errors.Wrap(errors.WithStack(readErr), errInfo())
@@ -114,6 +115,9 @@ func (a *gvsConfig) getKVVersion(name string) error {
 		}
 	}
 	a.VaultKvVersion = version
+	if len(version) == 0 {
+		return errors.New("Could not get kv version")
+	}
 	log.Debugf("%v is vault kv v %v", name, version)
 	return nil
 }
@@ -213,32 +217,32 @@ func (a *gvsConfig) getVaultSecret(path string) (kv map[string]string, err error
 	return secretsList, nil
 }
 
-func parseKVv2(rawSecret []byte) (gs map[string]string, err error) {
+func parseKVv2(rawSecret []byte) (secretKV map[string]string, err error) {
 	var secret VaultSecretv2
-	gs = make(map[string]string)
+	secretKV = make(map[string]string)
 	err = json.Unmarshal(rawSecret, &secret)
 	if err != nil {
-		return gs, errors.Wrap(errors.WithStack(err), errInfo())
+		return secretKV, errors.Wrap(errors.WithStack(err), errInfo())
 	}
 	for k, v := range secret.Data.Data {
-		gs[k] = v
+		secretKV[k] = v
 	}
 
-	return gs, nil
+	return secretKV, nil
 }
 
-func parseKVv1(rawSecret []byte) (gs map[string]string, err error) {
+func parseKVv1(rawSecret []byte) (secretKV map[string]string, err error) {
 	var secret VaultSecret
-	gs = make(map[string]string)
+	secretKV = make(map[string]string)
 	err = json.Unmarshal(rawSecret, &secret)
 	if err != nil {
-		return gs, errors.Wrap(errors.WithStack(err), errInfo())
+		return secretKV, errors.Wrap(errors.WithStack(err), errInfo())
 	}
 	for k, v := range secret.Data {
-		gs[k] = v
+		secretKV[k] = v
 	}
 
-	return gs, nil
+	return secretKV, nil
 }
 
 // UnmarshalJSON unmarshal Vault JSON response to /v1/sys/internal/ui/mounts
