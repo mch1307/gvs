@@ -1,2 +1,4 @@
 gvs
 gvs.sh
+vendor/*
+.idea
