@@ -220,3 +220,76 @@ func vaultSecretV1Handler(w http.ResponseWriter, r *http.Request) {
 		w.Write([]byte(koResp))
 	}
 }
+
+func Test_generateRandomString(t *testing.T) {
+	type args struct {
+		n int
+	}
+	tests := []struct {
+		name string
+		n    int
+	}{
+		{"simple test", 123},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			_ = generateRandomString(tt.n)
+		})
+	}
+}
+
+func Test_gvsConfig_isSecretFilePathOK(t *testing.T) {
+	type fields struct {
+		AppName             string
+		AppEnv              string
+		VaultURL            string
+		VaultSecretPath     string
+		VaultRoleID         string
+		VaultSecretID       string
+		SecretFilePath      string
+		SecretAvailabletime string
+		SecretList          []string
+		VaultToken          string
+		VaultCredentials    VaultAppRoleCredentials
+		VaultKvVersion      string
+		OutputFormat        string
+		LogLevel            string
+	}
+	tests := []struct {
+		name     string
+		fields   fields
+		wantIsOK bool
+		wantErr  bool
+	}{
+		{"fileOK", fields{SecretFilePath: "/dev/shm/test", SecretAvailabletime: "2"}, true, false},
+		{"fileKO", fields{SecretFilePath: "/dev1/shm1/test", SecretAvailabletime: "2"}, false, true},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			a := &gvsConfig{
+				AppName:             tt.fields.AppName,
+				AppEnv:              tt.fields.AppEnv,
+				VaultURL:            tt.fields.VaultURL,
+				VaultSecretPath:     tt.fields.VaultSecretPath,
+				VaultRoleID:         tt.fields.VaultRoleID,
+				VaultSecretID:       tt.fields.VaultSecretID,
+				SecretFilePath:      tt.fields.SecretFilePath,
+				SecretAvailabletime: tt.fields.SecretAvailabletime,
+				SecretList:          tt.fields.SecretList,
+				VaultToken:          tt.fields.VaultToken,
+				VaultCredentials:    tt.fields.VaultCredentials,
+				VaultKvVersion:      tt.fields.VaultKvVersion,
+				OutputFormat:        tt.fields.OutputFormat,
+				LogLevel:            tt.fields.LogLevel,
+			}
+			gotIsOK, err := a.isSecretFilePathOK()
+			if (err != nil) != tt.wantErr {
+				t.Errorf("gvsConfig.isSecretFilePathOK() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if gotIsOK != tt.wantIsOK {
+				t.Errorf("gvsConfig.isSecretFilePathOK() = %v, want %v", gotIsOK, tt.wantIsOK)
+			}
+		})
+	}
+}
