@@ -126,7 +126,7 @@ func (a *gvsConfig) publishVaultSecret() error {
 	secretsList := make(map[string]string)
 	if len(a.SecretList) > 0 {
 		for _, v := range a.SecretList {
-			kvMap, err := a.getVaultSecret(a.VaultSecretPath + "/" + v)
+			kvMap, err := a.GetVaultSecret(a.VaultSecretPath + "/" + v)
 			if err != nil {
 				return errors.Wrap(errors.WithStack(err), errInfo())
 			}
@@ -135,7 +135,7 @@ func (a *gvsConfig) publishVaultSecret() error {
 			}
 		}
 	} else {
-		kvMap, err := a.getVaultSecret(a.VaultSecretPath)
+		kvMap, err := a.GetVaultSecret(a.VaultSecretPath)
 		if err != nil {
 			return errors.Wrap(errors.WithStack(err), errInfo())
 		}
@@ -170,7 +170,9 @@ func (a *gvsConfig) publishVaultSecret() error {
 
 }
 
-func (a *gvsConfig) getVaultSecret(path string) (kv map[string]string, err error) {
+// GetVaultSecret read secret kv at given path
+// Returns a key value list
+func (a *gvsConfig) GetVaultSecret(path string) (kv map[string]string, err error) {
 	secretsList := make(map[string]string)
 	url := a.VaultURL + "/v1/" + path
 	log.Debug("Vault url: ", url)

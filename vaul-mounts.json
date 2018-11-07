@@ -1,0 +1,87 @@
+{
+    "request_id": "2db2f477-9f5e-6d95-c749-fa13f6faa98e",
+    "lease_id": "",
+    "renewable": false,
+    "lease_duration": 0,
+    "data": {
+        "secret": {
+            "cubbyhole/": {
+                "accessor": "cubbyhole_c7e85579",
+                "config": {
+                    "default_lease_ttl": 0,
+                    "force_no_cache": false,
+                    "max_lease_ttl": 0,
+                    "plugin_name": ""
+                },
+                "description": "per-token private secret storage",
+                "local": true,
+                "options": null,
+                "seal_wrap": false,
+                "type": "cubbyhole"
+            },
+            "identity/": {
+                "accessor": "identity_47ff67dd",
+                "config": {
+                    "default_lease_ttl": 0,
+                    "force_no_cache": false,
+                    "max_lease_ttl": 0,
+                    "plugin_name": ""
+                },
+                "description": "identity store",
+                "local": false,
+                "options": null,
+                "seal_wrap": false,
+                "type": "identity"
+            },
+            "kv/": {
+                "accessor": "kv_8bf51dd1",
+                "config": {
+                    "default_lease_ttl": 0,
+                    "force_no_cache": false,
+                    "max_lease_ttl": 0,
+                    "plugin_name": ""
+                },
+                "description": "",
+                "local": false,
+                "options": {
+                    "version": "1"
+                },
+                "seal_wrap": false,
+                "type": "kv"
+            },
+            "secret/": {
+                "accessor": "kv_0cb1bd73",
+                "config": {
+                    "default_lease_ttl": 0,
+                    "force_no_cache": false,
+                    "max_lease_ttl": 0,
+                    "plugin_name": ""
+                },
+                "description": "key/value secret storage",
+                "local": false,
+                "options": {
+                    "version": "2"
+                },
+                "seal_wrap": false,
+                "type": "kv"
+            },
+            "sys/": {
+                "accessor": "system_f177f6e8",
+                "config": {
+                    "default_lease_ttl": 0,
+                    "force_no_cache": false,
+                    "max_lease_ttl": 0,
+                    "plugin_name": ""
+                },
+                "description": "system endpoints used for control, policy and debugging",
+                "local": false,
+                "options": null,
+                "seal_wrap": false,
+                "type": "system"
+            }
+        }
+    },
+    "wrap_info": null,
+    "warnings": null,
+    "auth": null
+}

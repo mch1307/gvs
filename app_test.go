@@ -29,8 +29,8 @@ func init() {
 func InitVaultStub() {
 	http.HandleFunc("/v1/auth/approle/login", loginHandler)
 	http.HandleFunc("/v1/sys/internal/ui/mounts", mountsHandler)
-	// http.HandleFunc("/v1/secret/data/test-test", vaultSecretV2Handler)
-	// http.HandleFunc("/v1/secret/test-test", vaultSecretHandler)
+	http.HandleFunc("/v1/secret/data/test-test", vaultSecretV2Handler)
+	http.HandleFunc("/v1/kv1/test-test", vaultSecretV1Handler)
 
 	go http.ListenAndServe(":8500", nil)
 }
@@ -171,4 +171,62 @@ func mountsHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	//w.Header().Set("Content-Type", "application/json")
 
+}
+
+func vaultSecretV2Handler(w http.ResponseWriter, r *http.Request) {
+	var v2Secret = `{
+    "request_id": "af823ad6-da9f-29ab-b0dd-13222f0d4033",
+    "lease_id": "",
+    "renewable": false,
+    "lease_duration": 0,
+    "data": {
+        "data": {
+            "test-key": "test-value"
+        },
+        "metadata": {
+            "created_time": "2018-11-07T08:14:23.912677243Z",
+            "deletion_time": "",
+            "destroyed": false,
+            "version": 1
+        }
+    },
+    "wrap_info": null,
+    "warnings": null,
+    "auth": null
+}`
+	var koResp = `{
+    "errors": [
+        "permission denied"
+    ]
+}`
+	if r.Header.Get("X-Vault-Token") == "goodToken" {
+		w.Write([]byte(v2Secret))
+	} else {
+		w.Write([]byte(koResp))
+	}
+}
+
+func vaultSecretV1Handler(w http.ResponseWriter, r *http.Request) {
+	var v1Secret = `{
+    "request_id": "d915438f-8aeb-0241-9927-d0b7b0c42166",
+    "lease_id": "",
+    "renewable": false,
+    "lease_duration": 2764800,
+    "data": {
+        "test-key": "test-value"
+    },
+    "wrap_info": null,
+    "warnings": null,
+    "auth": null
+}`
+	var koResp = `{
+    "errors": [
+        "permission denied"
+    ]
+}`
+	if r.Header.Get("X-Vault-Token") == "goodToken" {
+		w.Write([]byte(v1Secret))
+	} else {
+		w.Write([]byte(koResp))
+	}
 }
