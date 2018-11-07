@@ -14,16 +14,10 @@ var (
 )
 
 func TestMain(m *testing.M) {
-	fmt.Println("TestMain: starting stub")
+	fmt.Println("TestMain: starting Vault stub")
 	InitVaultStub()
 	ret := m.Run()
 	os.Exit(ret)
-}
-
-func init() {
-	fmt.Println("starting Vault Stub")
-	//baseUrl = "http://" + ConnectHost + ":8081"
-	//initStub()
 }
 
 func InitVaultStub() {
@@ -48,11 +42,9 @@ func loginHandler(w http.ResponseWriter, r *http.Request) {
 		} else if vaultCredentials.RoleID == "ko" {
 			vaultAuthResponse.Auth.ClientToken = "ko"
 		} else if vaultCredentials.RoleID == "5xx" {
-			fmt.Println("5xx")
 			vaultAuthResponse.Auth.ClientToken = "5xx"
 			w.WriteHeader(http.StatusInternalServerError)
 		} else if vaultCredentials.RoleID == "jsonKO" {
-			fmt.Println("jsonKO")
 			var dummy = `{"invalid":"json"
 			`
 			w.Write([]byte(dummy))
@@ -164,12 +156,10 @@ func mountsHandler(w http.ResponseWriter, r *http.Request) {
 		"auth": null
 	}`
 	if r.Header.Get("X-Vault-Token") == "goodToken" {
-		fmt.Println("gootToken")
 		w.Write([]byte(okResp))
 	} else {
 		w.Write([]byte(koResp))
 	}
-	//w.Header().Set("Content-Type", "application/json")
 
 }
 
