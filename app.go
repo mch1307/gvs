@@ -1,6 +1,7 @@
 package main
 
 import (
+	//"errors"
 	"io/ioutil"
 	"math/rand"
 	"os"
@@ -44,7 +45,8 @@ func errInfo() (info string) {
 var gvs gvsConfig
 var version string
 
-func Init() {
+// Init read env and initialize app config
+func Init() error {
 	var err error
 	// get config from env
 	gvs.VaultKvVersion = "2"
@@ -95,18 +97,21 @@ func Init() {
 	// get Vault App Role credentials
 	gvs.VaultCredentials.RoleID, err = getSecretFromFile(gvs.VaultRoleID)
 	if err != nil {
-		log.Fatal("Error reading role_id docker secret: ", err)
+		return errors.New("Error reading role_is secret: " + err.Error())
+		//log.Fatal("Error reading role_id docker secret: ", err)
 	}
 
 	gvs.VaultCredentials.SecretID, err = getSecretFromFile(gvs.VaultSecretID)
 	if err != nil {
-		log.Fatal("Error reading secret_id docker secret: ", err)
+		return errors.New("Error reading secret_id secret: " + err.Error())
+		//log.Fatal("Error reading secret_id docker secret: ", err)
 	}
 
 	// get Vault App Role token
 	err = gvs.getVaultAppRoleToken()
 	if err != nil {
-		log.Fatal("Vault auth error: ", err)
+		return errors.New("Vault auth error: " + err.Error())
+		//log.Fatal("Vault auth error: ", err)
 	}
 
 	// get Vault kv version
@@ -123,7 +128,8 @@ func Init() {
 			// check kv version
 			err = gvs.getKVVersion(secretParam[0] + "/")
 			if err != nil {
-				log.Fatal(err)
+				return errors.New("Error getting Vault KV version: " + err.Error())
+				//log.Fatal(err)
 			}
 			// Get the list of secrets from ENV
 			if len(os.Getenv("GVS_SECRETLIST")) > 0 {
@@ -131,14 +137,16 @@ func Init() {
 			}
 		}
 	}
-
 	log.Debugf("gvs config: %+v", gvs.AppName)
+	return nil
 
 }
 
 func main() {
-	Init()
-	var err error
+	err := Init()
+	if err != nil {
+		log.Fatalf("Fatal error initializing app %v", err)
+	}
 	//fmt.Println("Checking secretfileok")
 	secretFileOK, errSecretFile := gvs.isSecretFilePathOK()
 	if errSecretFile != nil {
