@@ -293,3 +293,37 @@ func Test_gvsConfig_isSecretFilePathOK(t *testing.T) {
 		})
 	}
 }
+
+func Test_getSecretFromFile(t *testing.T) {
+	type args struct {
+		path string
+	}
+	tests := []struct {
+		name       string
+		args       args
+		wantSecret string
+		wantErr    bool
+	}{
+		{"fileOK", args{path: "tmpSecret"}, "test", false},
+		{"fileNotFound", args{path: "tmpNoSecret"}, "", true},
+	}
+	filePath := "tmpSecret"
+	f, _ := os.Create(filePath)
+	defer f.Close()
+	_, _ = f.WriteString("test")
+	f.Sync()
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			gotSecret, err := getSecretFromFile(tt.args.path)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("getSecretFromFile() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if gotSecret != tt.wantSecret {
+				t.Errorf("getSecretFromFile() = %v, want %v", gotSecret, tt.wantSecret)
+			}
+		})
+	}
+	_ = destroySecretFile(filePath, "1")
+}
