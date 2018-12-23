@@ -2,3 +2,4 @@ gvs
 gvs.sh
 vendor/*
 .idea
+*.dsc
