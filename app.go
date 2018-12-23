@@ -2,6 +2,7 @@ package main
 
 import (
 	//"errors"
+	"fmt"
 	"io/ioutil"
 	"math/rand"
 	"os"
@@ -12,8 +13,10 @@ import (
 	"strings"
 	"time"
 
+	vault "github.com/mch1307/vaultlib"
 	"github.com/pkg/errors"
 	log "github.com/sirupsen/logrus"
+	yaml "gopkg.in/yaml.v2"
 )
 
 // holds our config
@@ -28,10 +31,12 @@ type gvsConfig struct {
 	SecretAvailabletime string
 	SecretList          []string
 	VaultToken          string
-	VaultCredentials    VaultAppRoleCredentials
-	VaultKvVersion      string
-	OutputFormat        string
-	LogLevel            string
+	//VaultCredentials    VaultAppRoleCredentials
+	//VaultKvVersion string
+	OutputFormat string
+	LogLevel     string
+	VaultConfig  *vault.Config
+	VaultCli     *vault.VaultClient
 }
 
 func errInfo() (info string) {
@@ -49,7 +54,6 @@ var version string
 func Init() error {
 	var err error
 	// get config from env
-	gvs.VaultKvVersion = "2"
 	gvs.AppName = os.Getenv("GVS_APPNAME")
 	gvs.AppEnv = os.Getenv("GVS_APPENV")
 	gvs.VaultURL = os.Getenv("GVS_VAULTURL")
@@ -84,6 +88,8 @@ func Init() error {
 
 	if len(gvs.SecretAvailabletime) == 0 {
 		gvs.SecretAvailabletime = "60"
+	} else if len(gvs.SecretAvailabletime) > 180 {
+		gvs.SecretAvailabletime = "180"
 	}
 
 	if len(gvs.VaultRoleID) == 0 {
@@ -95,51 +101,34 @@ func Init() error {
 	}
 
 	// get Vault App Role credentials
-	gvs.VaultCredentials.RoleID, err = getSecretFromFile(gvs.VaultRoleID)
+	vaultRoleID, err := getSecretFromFile(gvs.VaultRoleID)
 	if err != nil {
 		return errors.New("Error reading role_is secret: " + err.Error())
-		//log.Fatal("Error reading role_id docker secret: ", err)
 	}
 
-	gvs.VaultCredentials.SecretID, err = getSecretFromFile(gvs.VaultSecretID)
+	vaultSecretID, err := getSecretFromFile(gvs.VaultSecretID)
 	if err != nil {
 		return errors.New("Error reading secret_id secret: " + err.Error())
-		//log.Fatal("Error reading secret_id docker secret: ", err)
 	}
 
-	// get Vault App Role token
-	err = gvs.getVaultAppRoleToken()
+	gvs.VaultConfig = vault.NewConfig()
+	gvs.VaultConfig.Address = gvs.VaultURL
+	gvs.VaultConfig.AppRoleCredentials = &vault.AppRoleCredentials{
+		RoleID:   vaultRoleID,
+		SecretID: vaultSecretID,
+	}
+
+	gvs.VaultCli, err = vault.NewClient(gvs.VaultConfig)
 	if err != nil {
-		return errors.New("Vault auth error: " + err.Error())
-		//log.Fatal("Vault auth error: ", err)
+		return errors.New("Error creating new Vault client: " + err.Error())
 	}
 
-	// get Vault kv version
-	if len(gvs.VaultSecretPath) == 0 {
-		// default to Vault kv v2, default secret/data path
-		gvs.VaultSecretPath = "secret/data/" + gvs.AppName + "-" + gvs.AppEnv
-	} else {
-		secretParam := strings.Split(gvs.VaultSecretPath, "/")
-		if len(secretParam) == 1 {
-			// we get a name, not a full secret path -> default to Vault kv v2, default secret/data path
-			gvs.VaultSecretPath = "secret/data/" + secretParam[0]
-		} else {
-			// assume we got a full secret path
-			// check kv version
-			err = gvs.getKVVersion(secretParam[0] + "/")
-			if err != nil {
-				return errors.New("Error getting Vault KV version: " + err.Error())
-				//log.Fatal(err)
-			}
-			// Get the list of secrets from ENV
-			if len(os.Getenv("GVS_SECRETLIST")) > 0 {
-				gvs.SecretList = strings.Split(os.Getenv("GVS_SECRETLIST"), ",")
-			}
-		}
+	if len(os.Getenv("GVS_SECRETLIST")) > 0 {
+		gvs.SecretList = strings.Split(os.Getenv("GVS_SECRETLIST"), ",")
 	}
 	log.Debugf("gvs config: %+v", gvs.AppName)
-	return nil
 
+	return nil
 }
 
 func main() {
@@ -164,6 +153,72 @@ func main() {
 	_ = destroySecretFile(gvs.SecretFilePath, gvs.SecretAvailabletime)
 
 	log.Infof("Secret file: %v, will be removed in %v seconds", gvs.SecretFilePath, gvs.SecretAvailabletime)
+}
+
+// GetVaultSecret read secret kv at given path
+// Returns a key value list
+func (a *gvsConfig) GetVaultSecret(path string) (kv map[string]string, err error) {
+	kvMap, err := a.VaultCli.GetVaultSecret(path)
+	if err != nil {
+		fmt.Println(err)
+	}
+
+	return kvMap, nil
+}
+
+func (a *gvsConfig) publishVaultSecret() error {
+	secretsList := make(map[string]string)
+	if len(a.SecretList) > 0 {
+		for _, v := range a.SecretList {
+			kvMap, err := a.GetVaultSecret(a.VaultSecretPath + "/" + v)
+			if err != nil {
+				return errors.Wrap(errors.WithStack(err), errInfo())
+			}
+			for k, v := range kvMap {
+				secretsList[k] = v
+			}
+		}
+	} else {
+		kvMap, err := a.GetVaultSecret(a.VaultSecretPath)
+		if err != nil {
+			return errors.Wrap(errors.WithStack(err), errInfo())
+		}
+		for k, v := range kvMap {
+			secretsList[k] = v
+		}
+	}
+
+	// add GVS_APPNAME & GVS_APPENV to secretfile
+	secretsList["GVS_APPNAME"] = gvs.AppName
+	secretsList["GVS_APPENV"] = gvs.AppEnv
+
+	for kd, vd := range secretsList {
+		log.Debugf("Populated secret: %v = %v (value hidden)", kd, generateRandomString(len(vd)))
+	}
+	// create the secret file
+	err := a.writeSecret(secretsList)
+	if err != nil {
+		return errors.Wrap(errors.WithStack(err), errInfo())
+	}
+	return err
+}
+
+func (a *gvsConfig) writeSecret(kv map[string]string) error {
+	f, err := os.Create(a.SecretFilePath)
+	if err != nil {
+		return errors.Wrap(errors.WithStack(err), errInfo())
+	}
+	defer f.Close()
+	if a.OutputFormat == "yaml" {
+		output, _ := yaml.Marshal(&kv)
+		_, _ = f.Write(output)
+	} else {
+		for k, v := range kv {
+			_, _ = f.WriteString(k + "=" + v + "\n")
+		}
+	}
+	f.Sync()
+	return err
 }
 
 func getSecretFromFile(path string) (secret string, err error) {

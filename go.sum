@@ -1,6 +1,10 @@
 github.com/davecgh/go-spew v1.1.1/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=
+github.com/hashicorp/go-cleanhttp v0.5.0 h1:wvCrVc9TjDls6+YGAF2hAifE1E5U1+b4tH6KdvN3Gig=
+github.com/hashicorp/go-cleanhttp v0.5.0/go.mod h1:JpRdi6/HCYpAwUzNwuwqhbovhLtngrth3wmdIIUrZ80=
 github.com/konsorten/go-windows-terminal-sequences v1.0.1 h1:mweAR1A6xJ3oS2pRaGiHgQ4OO8tzTaLawm8vnODuwDk=
 github.com/konsorten/go-windows-terminal-sequences v1.0.1/go.mod h1:T0+1ngSBFLxvqU3pZ+m/2kptfBszLMUkC4ZK/EgS/cQ=
+github.com/mch1307/vaultlib v0.0.0-20181222211005-c22d208944fa h1:rfGOSGtd8YlaVIrLUOZajzlK4e69HIZvnnMQCdjsGGQ=
+github.com/mch1307/vaultlib v0.0.0-20181222211005-c22d208944fa/go.mod h1:FQQbuSib/r985qCzGCxiDnIOk3S+5otZS+1/NS8Hk9g=
 github.com/mdempsky/gocode v0.0.0-20181030163406-be88cde360c2 h1:RKbVK7zX5+JpJ2PNgC6JabW7+Dld/OtxgRi3ql4eBUY=
 github.com/mdempsky/gocode v0.0.0-20181030163406-be88cde360c2/go.mod h1:hltEC42XzfMNgg0S1v6JTywwra2Mu6F6cLR03debVQ8=
 github.com/pkg/errors v0.8.0 h1:WdK/asTD0HN+q6hsWO3/vpuAkAr+tw6aNJNDFFf0+qw=

@@ -1,6 +1,7 @@
 module github.com/mch1307/gvs
 
 require (
+	github.com/mch1307/vaultlib v0.0.0-20181222211005-c22d208944fa
 	github.com/mdempsky/gocode v0.0.0-20181030163406-be88cde360c2 // indirect
 	github.com/pkg/errors v0.8.0
 	github.com/sirupsen/logrus v1.2.0
