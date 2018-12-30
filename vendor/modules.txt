@@ -1,5 +1,9 @@
+# github.com/hashicorp/go-cleanhttp v0.5.0
+github.com/hashicorp/go-cleanhttp
 # github.com/konsorten/go-windows-terminal-sequences v1.0.1
 github.com/konsorten/go-windows-terminal-sequences
+# github.com/mch1307/vaultlib v0.0.0-20181222211005-c22d208944fa
+github.com/mch1307/vaultlib
 # github.com/pkg/errors v0.8.0
 github.com/pkg/errors
 # github.com/sirupsen/logrus v1.2.0
