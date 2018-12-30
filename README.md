@@ -6,11 +6,11 @@ Support secrets stored as key/value for both kv v1 and v2.
 
 ## Use Case
 
-A containerized application needs to get secrets from Vault at runtime. The application cannot directly access Vault.
+A containerized application needs to get secrets from Vault at runtime. The application cannot directly access Vault before boostraping.
 
-The secrets cannot be stored in the image, nor in its source code.
+The secrets cannot be stored in the image, nor in the source code repo.
 
-Create a Vault app role with relevant privileges, create docker or kubernetes secrets to store the role_id and secret_id.
+Create a Vault app role with relevant policy, create docker or kubernetes secrets to store the role_id and secret_id.
 
 `gvs` will authenticate to Vault with the provided role_id / secret_id and read the application secret(s).
 
@@ -25,17 +25,13 @@ The secret will be stored in a file so that the application can easily access th
 When started, `gvs` will first read it's parameters from `GVS_` prefixed environment variables.
 
 ```bash
-GVS_APPNAME                 Name of your application (ideally stored in the container)
+GVS_APPNAME                 Name of your application
 GVS_APPENV                  Environment where the app will run (ie dev, test,..)
 GVS_VAULTURL                URL of the Vault server
 GVS_SECRETPATH              Path to the Vault secret.
-                            Defaults to secret/data/appName-env (kv v2)
-                            Can be the "name" of the secret (last part of the path) or the complete secret path.
-                            In case only the last part is provided, gvs will assume kv v2 is used.
 GVS_SECRETLIST              List of secrets the application needs to read.
-                            Only if GVS_SECRETPATH is a complete path.
                             Docker run does not support array env variable, so this should be stored in the image itself.
-GVS_SECRETTARGETPATH        Path where the secret kv file will be written  (default /dev/shm)
+GVS_SECRETTARGETPATH        Path where the secret kv file will be written  (default /dev/shm/gvs)
 GVS_SECRETAVAILABLETIME     Number of seconds after which the secret file will be destroyed
 GVS_VAULTROLEID             Path to file containing the Vault role id (default run/secrets/role_id)
 GVS_VAULTROLESECRETID       Path to file containing the Vault secret id (default /run/secrets/secret_id)
@@ -59,7 +55,7 @@ Application called `demo` running in `dev` environment needs to read the secrets
 ### Dockerfile
 
 ```Dockerfile
-FROM alpine:3.7
+FROM alpine:3.8
 ENV GVS_APP=demo
 COPY gvs /usr/local/bin
 COPY demo.app /demo.app
@@ -94,7 +90,7 @@ MYSECRET2=mysecrevalue2
 
 ## Build
 
-```
+```shell
 VERSION=$(git log -n1 --pretty="format:%d" | sed "s/, /\n/g" | grep tag: | sed "s/tag: \|)//g") && \
 VERSION=$VERSION-$(git log -1 --pretty=format:%h) && \
 CGO_ENABLED="0" GOARCH="amd64" GOOS="linux" go build -a -installsuffix cgo -o gvs -ldflags="-s -w -X main.version=$VERSION"
