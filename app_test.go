@@ -1,225 +1,13 @@
 package main
 
 import (
-	"encoding/json"
-	"fmt"
-	"net/http"
+	//	"log"
 	"os"
 	"testing"
+
+	vault "github.com/mch1307/vaultlib"
+	log "github.com/sirupsen/logrus"
 )
-
-var (
-	vaultMount  VaultSecretMount
-	vaultMounts VaultSecretMounts
-)
-
-func TestMain(m *testing.M) {
-	fmt.Println("TestMain: starting Vault stub")
-	InitVaultStub()
-	ret := m.Run()
-	os.Exit(ret)
-}
-
-func InitVaultStub() {
-	http.HandleFunc("/v1/auth/approle/login", loginHandler)
-	http.HandleFunc("/v1/sys/internal/ui/mounts", mountsHandler)
-	http.HandleFunc("/v1/secret/data/test-test", vaultSecretV2Handler)
-	http.HandleFunc("/v1/kv1/test-test", vaultSecretV1Handler)
-
-	go http.ListenAndServe(":8500", nil)
-}
-
-func loginHandler(w http.ResponseWriter, r *http.Request) {
-	var vaultAuthResponse VaultAuthResponse
-	var vaultCredentials VaultAppRoleCredentials
-	err := json.NewDecoder(r.Body).Decode(&vaultCredentials)
-	if err != nil {
-		w.WriteHeader(http.StatusBadRequest)
-		w.Write([]byte(err.Error()))
-	} else {
-		if vaultCredentials.RoleID == "ok" {
-			vaultAuthResponse.Auth.ClientToken = "ok"
-		} else if vaultCredentials.RoleID == "ko" {
-			vaultAuthResponse.Auth.ClientToken = "ko"
-		} else if vaultCredentials.RoleID == "5xx" {
-			vaultAuthResponse.Auth.ClientToken = "5xx"
-			w.WriteHeader(http.StatusInternalServerError)
-		} else if vaultCredentials.RoleID == "jsonKO" {
-			var dummy = `{"invalid":"json"
-			`
-			w.Write([]byte(dummy))
-		}
-	}
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(vaultAuthResponse)
-}
-
-func mountsHandler(w http.ResponseWriter, r *http.Request) {
-	var okResp = `{
-		"request_id": "2db2f477-9f5e-6d95-c749-fa13f6faa98e",
-		"lease_id": "",
-		"renewable": false,
-		"lease_duration": 0,
-		"data": {
-			"secret": {
-				"cubbyhole/": {
-					"accessor": "cubbyhole_c7e85579",
-					"config": {
-						"default_lease_ttl": 0,
-						"force_no_cache": false,
-						"max_lease_ttl": 0,
-						"plugin_name": ""
-					},
-					"description": "per-token private secret storage",
-					"local": true,
-					"options": null,
-					"seal_wrap": false,
-					"type": "cubbyhole"
-				},
-				"identity/": {
-					"accessor": "identity_47ff67dd",
-					"config": {
-						"default_lease_ttl": 0,
-						"force_no_cache": false,
-						"max_lease_ttl": 0,
-						"plugin_name": ""
-					},
-					"description": "identity store",
-					"local": false,
-					"options": null,
-					"seal_wrap": false,
-					"type": "identity"
-				},
-				"kvV1/": {
-					"accessor": "kv_8bf51dd1",
-					"config": {
-						"default_lease_ttl": 0,
-						"force_no_cache": false,
-						"max_lease_ttl": 0,
-						"plugin_name": ""
-					},
-					"description": "",
-					"local": false,
-					"options": {
-						"version": "1"
-					},
-					"seal_wrap": false,
-					"type": "kv"
-				},
-				"kvV2/": {
-					"accessor": "kv_0cb1bd73",
-					"config": {
-						"default_lease_ttl": 0,
-						"force_no_cache": false,
-						"max_lease_ttl": 0,
-						"plugin_name": ""
-					},
-					"description": "key/value secret storage",
-					"local": false,
-					"options": {
-						"version": "2"
-					},
-					"seal_wrap": false,
-					"type": "kv"
-				},
-				"sys/": {
-					"accessor": "system_f177f6e8",
-					"config": {
-						"default_lease_ttl": 0,
-						"force_no_cache": false,
-						"max_lease_ttl": 0,
-						"plugin_name": ""
-					},
-					"description": "system endpoints used for control, policy and debugging",
-					"local": false,
-					"options": null,
-					"seal_wrap": false,
-					"type": "system"
-				}
-			}
-		},
-		"wrap_info": null,
-		"warnings": null,
-		"auth": null
-	}`
-	var koResp = `{
-		"request_id": "660de5d6-92ff-a614-0e31-0460ee0c49c2",
-		"lease_id": "",
-		"renewable": false,
-		"lease_duration": 0,
-		"data": {
-			"auth": {},
-			"secret": {}
-		},
-		"wrap_info": null,
-		"warnings": null,
-		"auth": null
-	}`
-	if r.Header.Get("X-Vault-Token") == "goodToken" {
-		w.Write([]byte(okResp))
-	} else {
-		w.Write([]byte(koResp))
-	}
-
-}
-
-func vaultSecretV2Handler(w http.ResponseWriter, r *http.Request) {
-	var v2Secret = `{
-    "request_id": "af823ad6-da9f-29ab-b0dd-13222f0d4033",
-    "lease_id": "",
-    "renewable": false,
-    "lease_duration": 0,
-    "data": {
-        "data": {
-            "test-key": "test-value"
-        },
-        "metadata": {
-            "created_time": "2018-11-07T08:14:23.912677243Z",
-            "deletion_time": "",
-            "destroyed": false,
-            "version": 1
-        }
-    },
-    "wrap_info": null,
-    "warnings": null,
-    "auth": null
-}`
-	var koResp = `{
-    "errors": [
-        "permission denied"
-    ]
-}`
-	if r.Header.Get("X-Vault-Token") == "goodToken" {
-		w.Write([]byte(v2Secret))
-	} else {
-		w.Write([]byte(koResp))
-	}
-}
-
-func vaultSecretV1Handler(w http.ResponseWriter, r *http.Request) {
-	var v1Secret = `{
-    "request_id": "d915438f-8aeb-0241-9927-d0b7b0c42166",
-    "lease_id": "",
-    "renewable": false,
-    "lease_duration": 2764800,
-    "data": {
-        "test-key": "test-value"
-    },
-    "wrap_info": null,
-    "warnings": null,
-    "auth": null
-}`
-	var koResp = `{
-    "errors": [
-        "permission denied"
-    ]
-}`
-	if r.Header.Get("X-Vault-Token") == "goodToken" {
-		w.Write([]byte(v1Secret))
-	} else {
-		w.Write([]byte(koResp))
-	}
-}
 
 func Test_generateRandomString(t *testing.T) {
 	type args struct {
@@ -238,61 +26,61 @@ func Test_generateRandomString(t *testing.T) {
 	}
 }
 
-func Test_gvsConfig_isSecretFilePathOK(t *testing.T) {
-	type fields struct {
-		AppName             string
-		AppEnv              string
-		VaultURL            string
-		VaultSecretPath     string
-		VaultRoleID         string
-		VaultSecretID       string
-		SecretFilePath      string
-		SecretAvailabletime string
-		SecretList          []string
-		VaultToken          string
-		VaultCredentials    VaultAppRoleCredentials
-		VaultKvVersion      string
-		OutputFormat        string
-		LogLevel            string
-	}
-	tests := []struct {
-		name     string
-		fields   fields
-		wantIsOK bool
-		wantErr  bool
-	}{
-		{"fileOK", fields{SecretFilePath: "/dev/shm/test", SecretAvailabletime: "2"}, true, false},
-		{"fileKO", fields{SecretFilePath: "/dev1/shm1/test", SecretAvailabletime: "2"}, false, true},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			a := &gvsConfig{
-				AppName:             tt.fields.AppName,
-				AppEnv:              tt.fields.AppEnv,
-				VaultURL:            tt.fields.VaultURL,
-				VaultSecretPath:     tt.fields.VaultSecretPath,
-				VaultRoleID:         tt.fields.VaultRoleID,
-				VaultSecretID:       tt.fields.VaultSecretID,
-				SecretFilePath:      tt.fields.SecretFilePath,
-				SecretAvailabletime: tt.fields.SecretAvailabletime,
-				SecretList:          tt.fields.SecretList,
-				VaultToken:          tt.fields.VaultToken,
-				VaultCredentials:    tt.fields.VaultCredentials,
-				VaultKvVersion:      tt.fields.VaultKvVersion,
-				OutputFormat:        tt.fields.OutputFormat,
-				LogLevel:            tt.fields.LogLevel,
-			}
-			gotIsOK, err := a.isSecretFilePathOK()
-			if (err != nil) != tt.wantErr {
-				t.Errorf("gvsConfig.isSecretFilePathOK() error = %v, wantErr %v", err, tt.wantErr)
-				return
-			}
-			if gotIsOK != tt.wantIsOK {
-				t.Errorf("gvsConfig.isSecretFilePathOK() = %v, want %v", gotIsOK, tt.wantIsOK)
-			}
-		})
-	}
-}
+// func Test_gvsConfig_isSecretFilePathOK(t *testing.T) {
+// 	type fields struct {
+// 		AppName             string
+// 		AppEnv              string
+// 		VaultURL            string
+// 		VaultSecretPath     string
+// 		VaultRoleID         string
+// 		VaultSecretID       string
+// 		SecretFilePath      string
+// 		SecretAvailabletime string
+// 		SecretList          []string
+// 		VaultToken          string
+// 		VaultCredentials    VaultAppRoleCredentials
+// 		VaultKvVersion      string
+// 		OutputFormat        string
+// 		LogLevel            string
+// 	}
+// 	tests := []struct {
+// 		name     string
+// 		fields   fields
+// 		wantIsOK bool
+// 		wantErr  bool
+// 	}{
+// 		{"fileOK", fields{SecretFilePath: "/dev/shm/test", SecretAvailabletime: "2"}, true, false},
+// 		{"fileKO", fields{SecretFilePath: "/dev1/shm1/test", SecretAvailabletime: "2"}, false, true},
+// 	}
+// 	for _, tt := range tests {
+// 		t.Run(tt.name, func(t *testing.T) {
+// 			a := &gvsConfig{
+// 				AppName:             tt.fields.AppName,
+// 				AppEnv:              tt.fields.AppEnv,
+// 				VaultURL:            tt.fields.VaultURL,
+// 				VaultSecretPath:     tt.fields.VaultSecretPath,
+// 				VaultRoleID:         tt.fields.VaultRoleID,
+// 				VaultSecretID:       tt.fields.VaultSecretID,
+// 				SecretFilePath:      tt.fields.SecretFilePath,
+// 				SecretAvailabletime: tt.fields.SecretAvailabletime,
+// 				SecretList:          tt.fields.SecretList,
+// 				VaultToken:          tt.fields.VaultToken,
+// 				VaultCredentials:    tt.fields.VaultCredentials,
+// 				VaultKvVersion:      tt.fields.VaultKvVersion,
+// 				OutputFormat:        tt.fields.OutputFormat,
+// 				LogLevel:            tt.fields.LogLevel,
+// 			}
+// 			gotIsOK, err := a.isSecretFilePathOK()
+// 			if (err != nil) != tt.wantErr {
+// 				t.Errorf("gvsConfig.isSecretFilePathOK() error = %v, wantErr %v", err, tt.wantErr)
+// 				return
+// 			}
+// 			if gotIsOK != tt.wantIsOK {
+// 				t.Errorf("gvsConfig.isSecretFilePathOK() = %v, want %v", gotIsOK, tt.wantIsOK)
+// 			}
+// 		})
+// 	}
+// }
 
 func Test_getSecretFromFile(t *testing.T) {
 	type args struct {
@@ -326,4 +114,217 @@ func Test_getSecretFromFile(t *testing.T) {
 		})
 	}
 	_ = destroySecretFile(filePath, "1")
+}
+
+func Test_gvsConfig_isSecretFilePathOK(t *testing.T) {
+	type fields struct {
+		AppName             string
+		AppEnv              string
+		VaultURL            string
+		VaultSecretPath     string
+		VaultRoleID         string
+		VaultSecretID       string
+		SecretFilePath      string
+		SecretAvailabletime string
+		SecretList          []string
+		VaultToken          string
+		OutputFormat        string
+		LogLevel            string
+		VaultConfig         *vault.Config
+		VaultCli            *vault.VaultClient
+	}
+	tests := []struct {
+		name     string
+		fields   fields
+		wantIsOK bool
+		wantErr  bool
+	}{
+		{"ok", fields{SecretFilePath: "./test"}, true, false},
+		{"ko", fields{SecretFilePath: "/notexist"}, false, true},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			a := &gvs{
+				AppName:             tt.fields.AppName,
+				AppEnv:              tt.fields.AppEnv,
+				VaultURL:            tt.fields.VaultURL,
+				VaultSecretPath:     tt.fields.VaultSecretPath,
+				VaultRoleID:         tt.fields.VaultRoleID,
+				VaultSecretID:       tt.fields.VaultSecretID,
+				SecretFilePath:      tt.fields.SecretFilePath,
+				SecretAvailabletime: tt.fields.SecretAvailabletime,
+				SecretList:          tt.fields.SecretList,
+				VaultToken:          tt.fields.VaultToken,
+				OutputFormat:        tt.fields.OutputFormat,
+				LogLevel:            tt.fields.LogLevel,
+				VaultConfig:         tt.fields.VaultConfig,
+				VaultCli:            tt.fields.VaultCli,
+			}
+			gotIsOK, err := a.isSecretFilePathOK()
+			if (err != nil) != tt.wantErr {
+				t.Errorf("gvsConfig.isSecretFilePathOK() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if gotIsOK != tt.wantIsOK {
+				t.Errorf("gvsConfig.isSecretFilePathOK() = %v, want %v", gotIsOK, tt.wantIsOK)
+			}
+		})
+	}
+}
+
+func Test_gvsConfig_writeSecret(t *testing.T) {
+	mySecret := make(map[string]string)
+	mySecret["secret"] = "value"
+	type fields struct {
+		AppName             string
+		AppEnv              string
+		VaultURL            string
+		VaultSecretPath     string
+		VaultRoleID         string
+		VaultSecretID       string
+		SecretFilePath      string
+		SecretAvailabletime string
+		SecretList          []string
+		VaultToken          string
+		OutputFormat        string
+		LogLevel            string
+		VaultConfig         *vault.Config
+		VaultCli            *vault.VaultClient
+	}
+	type args struct {
+		kv map[string]string
+	}
+	tests := []struct {
+		name    string
+		fields  fields
+		args    args
+		wantErr bool
+	}{
+		{"ok", fields{SecretFilePath: "./test.kv"}, args{mySecret}, false},
+		{"ko", fields{SecretFilePath: "/root/test.kv"}, args{mySecret}, true},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			a := &gvs{
+				AppName:             tt.fields.AppName,
+				AppEnv:              tt.fields.AppEnv,
+				VaultURL:            tt.fields.VaultURL,
+				VaultSecretPath:     tt.fields.VaultSecretPath,
+				VaultRoleID:         tt.fields.VaultRoleID,
+				VaultSecretID:       tt.fields.VaultSecretID,
+				SecretFilePath:      tt.fields.SecretFilePath,
+				SecretAvailabletime: tt.fields.SecretAvailabletime,
+				SecretList:          tt.fields.SecretList,
+				VaultToken:          tt.fields.VaultToken,
+				OutputFormat:        tt.fields.OutputFormat,
+				LogLevel:            tt.fields.LogLevel,
+				VaultConfig:         tt.fields.VaultConfig,
+				VaultCli:            tt.fields.VaultCli,
+			}
+			if err := a.writeSecret(tt.args.kv); (err != nil) != tt.wantErr {
+				t.Errorf("gvsConfig.writeSecret() error = %v, wantErr %v", err, tt.wantErr)
+			}
+		})
+	}
+}
+
+func Test_newGVS(t *testing.T) {
+	vCfg := vault.NewConfig()
+	vCfg.Address = "http://localhost:8200"
+	vCfg.AppRoleCredentials = &vault.AppRoleCredentials{RoleID: testVaultRoleID, SecretID: testVaultSecretID}
+	vCli, err := vault.NewClient(vCfg)
+	if err != nil {
+		log.Fatalf("Error getting new vault client: %v", err)
+	}
+	//vaultConfig.AppRoleCredentials
+	os.Setenv("GVS_APPNAME", "my-app")
+	os.Setenv("GVS_APPENV", "dev")
+	os.Setenv("GVS_VAULTURL", vCfg.Address)
+	os.Setenv("GVS_VAULTROLEID", "/tmp/role_id")
+	os.Setenv("GVS_VAULTSECRETID", "/tmp/secret_id")
+	os.Setenv("GVS_SECRETPATH", "kv_v2/my-app-dev")
+	tests := []struct {
+		name    string
+		wantGvs *gvs
+		wantErr bool
+	}{
+		{"ok", &gvs{AppName: "my-app",
+			AppEnv:              "dev",
+			VaultURL:            vCfg.Address,
+			VaultSecretPath:     "kv_v2/my-app-dev",
+			VaultRoleID:         "/tmp/role_id",
+			VaultSecretID:       "/tmp/secret_id",
+			SecretFilePath:      "/dev/shm/gvs",
+			SecretAvailabletime: "60",
+			SecretList:          nil,
+			VaultToken:          "",
+			OutputFormat:        "yaml",
+			LogLevel:            "INFO",
+			VaultConfig:         vCfg,
+			VaultCli:            vCli,
+		},
+			false},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			gotGvs, err := newGVS()
+			if (err != nil) != tt.wantErr {
+				t.Errorf("newGVS() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			//!reflect.DeepEqual(gotGvs.VaultCli.Status, tt.wantGvs.VaultCli.Status)
+
+			if (gotGvs.AppName != tt.wantGvs.AppName) ||
+				(gotGvs.AppEnv != tt.wantGvs.AppEnv) ||
+				(gotGvs.VaultURL != tt.wantGvs.VaultURL) ||
+				(gotGvs.VaultSecretPath != tt.wantGvs.VaultSecretPath) ||
+				(gotGvs.VaultRoleID != tt.wantGvs.VaultRoleID) ||
+				(gotGvs.VaultSecretID != tt.wantGvs.VaultSecretID) ||
+				(gotGvs.SecretFilePath != tt.wantGvs.SecretFilePath) ||
+				(gotGvs.VaultCli.Status != tt.wantGvs.VaultCli.Status) {
+
+				t.Errorf("newGVS() = %v, want %v", gotGvs, tt.wantGvs)
+			}
+		})
+	}
+}
+
+func Test_gvs_publishVaultSecret(t *testing.T) {
+	os.Setenv("GVS_APPNAME", "my-app")
+	os.Setenv("GVS_APPENV", "dev")
+	os.Setenv("GVS_VAULTURL", "http://localhost:8200")
+	os.Setenv("GVS_VAULTROLEID", "/tmp/role_id")
+	os.Setenv("GVS_VAULTSECRETID", "/tmp/secret_id")
+	os.Setenv("GVS_SECRETPATH", "kv_v2/my-app-dev")
+	goodCli, err := newGVS()
+	if err != nil {
+		t.Errorf("Error getting gvs %v", err)
+	}
+	os.Setenv("GVS_SECRETPATH", "invalid_secret/")
+	badSecretCli, err := newGVS()
+	if err != nil {
+		log.Fatalf("Error getting gvs %v", err)
+	}
+	//os.Setenv("GVS_VAULTROLEID", "/tmp/role_id")
+	// os.Setenv("GVS_VAULTSECRETID", "/no_secret_id")
+	// badSecretIDCli, err := newGVS()
+	// if err != nil {
+	// 	t.Errorf("Error getting gvs %v", err)
+	// }
+
+	tests := []struct {
+		name    string
+		cli     *gvs
+		wantErr bool
+	}{
+		{"ok", goodCli, false},
+		{"badSecretPath", badSecretCli, true},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if err := tt.cli.publishVaultSecret(); (err != nil) != tt.wantErr {
+				t.Errorf("gvs.publishVaultSecret() error = %v, wantErr %v", err, tt.wantErr)
+			}
+		})
+	}
 }
