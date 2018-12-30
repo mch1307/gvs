@@ -2,4 +2,6 @@ gvs
 gvs.sh
 vendor/*
 .idea
+.vscode
 *.dsc
+*.zip
