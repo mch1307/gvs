@@ -71,7 +71,7 @@ func newGVS() (*gvs, error) {
 	logLevel, _ := log.ParseLevel(gvs.LogLevel)
 	log.SetOutput(os.Stdout)
 	log.SetLevel(logLevel)
-	log.Infof("Starting gvs verion %v", version)
+	log.Infof("Starting gvs version %v", version)
 
 	// replace nil values with defaults when applicable
 	if len(gvs.SecretFilePath) == 0 {
