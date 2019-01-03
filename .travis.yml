@@ -7,7 +7,7 @@ env:
   - GO111MODULE=on
 install: true
 before_install:
-  - go get github.com/mattn/goveralls
+  - GO111MODULE=auto go get github.com/mattn/goveralls
 script:
   - goveralls -v -service=travis-ci
 after_success:
