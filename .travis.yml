@@ -9,6 +9,6 @@ install: true
 before_install:
   - GO111MODULE=auto go get github.com/mattn/goveralls
 script:
-  - goveralls -v -service=travis-ci
+  - GO111MODULE=auto goveralls -v -service=travis-ci
 after_success:
   - test -n "$TRAVIS_TAG" && curl -sL https://git.io/goreleaser | bash 
