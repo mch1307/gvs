@@ -3,12 +3,10 @@ language: go
 go:
   - 1.11.4
   - tip
-env:
-  - GO111MODULE=on
 install: true
 before_install:
-  - GO111MODULE=auto go get github.com/mattn/goveralls
+  - go get github.com/mattn/goveralls
 script:
-  - GO111MODULE=auto goveralls -v -service=travis-ci
+  - goveralls -v -service=travis-ci
 after_success:
   - test -n "$TRAVIS_TAG" && curl -sL https://git.io/goreleaser | bash 
