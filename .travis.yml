@@ -1,12 +1,11 @@
 # .travis.yml
 language: go
 go:
-    - 1.11.4
-    - tip
-install: true
-sudo: required
-go:
+  - 1.11.4
   - tip
+env:
+  - GO111MODULE=on
+install: true
 before_install:
   - go get github.com/mattn/goveralls
 script:
