@@ -2,11 +2,8 @@
 language: go
 go:
     - 1.11.4
-    - tip
 install: true
 sudo: required
-go:
-  - tip
 before_install:
   - go get github.com/mattn/goveralls
 script:
