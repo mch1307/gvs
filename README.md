@@ -1,5 +1,7 @@
 # gvs
 
+[![Coverage Status](https://coveralls.io/repos/github/mch1307/gvs/badge.svg?branch=dev)](https://coveralls.io/github/mch1307/gvs?branch=dev)
+
 Simple (linux) container utility to read Vault secrets for a given application. Will put the secret(s) in a file and remove this file after x seconds.
 
 Support secrets stored as key/value for both kv v1 and v2.
@@ -29,8 +31,6 @@ GVS_APPNAME                 Name of your application
 GVS_APPENV                  Environment where the app will run (ie dev, test,..)
 GVS_VAULTURL                URL of the Vault server
 GVS_SECRETPATH              Path to the Vault secret.
-GVS_SECRETLIST              List of secrets the application needs to read.
-                            Docker run does not support array env variable, so this should be stored in the image itself.
 GVS_SECRETTARGETPATH        Path where the secret kv file will be written  (default /dev/shm/gvs)
 GVS_SECRETAVAILABLETIME     Number of seconds after which the secret file will be destroyed
 GVS_VAULTROLEID             Path to file containing the Vault role id (default run/secrets/role_id)

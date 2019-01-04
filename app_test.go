@@ -2,6 +2,7 @@ package main
 
 import (
 	//	"log"
+	"fmt"
 	"os"
 	"testing"
 
@@ -153,12 +154,12 @@ func Test_gvsConfig_isSecretFilePathOK(t *testing.T) {
 				VaultSecretID:       tt.fields.VaultSecretID,
 				SecretFilePath:      tt.fields.SecretFilePath,
 				SecretAvailabletime: tt.fields.SecretAvailabletime,
-				SecretList:          tt.fields.SecretList,
-				VaultToken:          tt.fields.VaultToken,
-				OutputFormat:        tt.fields.OutputFormat,
-				LogLevel:            tt.fields.LogLevel,
-				VaultConfig:         tt.fields.VaultConfig,
-				VaultCli:            tt.fields.VaultCli,
+				//				SecretList:          tt.fields.SecretList,
+				VaultToken:   tt.fields.VaultToken,
+				OutputFormat: tt.fields.OutputFormat,
+				LogLevel:     tt.fields.LogLevel,
+				VaultConfig:  tt.fields.VaultConfig,
+				VaultCli:     tt.fields.VaultCli,
 			}
 			gotIsOK, err := a.isSecretFilePathOK()
 			if (err != nil) != tt.wantErr {
@@ -214,12 +215,12 @@ func Test_gvsConfig_writeSecret(t *testing.T) {
 				VaultSecretID:       tt.fields.VaultSecretID,
 				SecretFilePath:      tt.fields.SecretFilePath,
 				SecretAvailabletime: tt.fields.SecretAvailabletime,
-				SecretList:          tt.fields.SecretList,
-				VaultToken:          tt.fields.VaultToken,
-				OutputFormat:        tt.fields.OutputFormat,
-				LogLevel:            tt.fields.LogLevel,
-				VaultConfig:         tt.fields.VaultConfig,
-				VaultCli:            tt.fields.VaultCli,
+				//				SecretList:          tt.fields.SecretList,
+				VaultToken:   tt.fields.VaultToken,
+				OutputFormat: tt.fields.OutputFormat,
+				LogLevel:     tt.fields.LogLevel,
+				VaultConfig:  tt.fields.VaultConfig,
+				VaultCli:     tt.fields.VaultCli,
 			}
 			if err := a.writeSecret(tt.args.kv); (err != nil) != tt.wantErr {
 				t.Errorf("gvsConfig.writeSecret() error = %v, wantErr %v", err, tt.wantErr)
@@ -256,12 +257,12 @@ func Test_newGVS(t *testing.T) {
 			VaultSecretID:       "/tmp/secret_id",
 			SecretFilePath:      "/dev/shm/gvs",
 			SecretAvailabletime: "60",
-			SecretList:          nil,
-			VaultToken:          "",
-			OutputFormat:        "yaml",
-			LogLevel:            "INFO",
-			VaultConfig:         vCfg,
-			VaultCli:            vCli,
+			//			SecretList:          nil,
+			VaultToken:   "",
+			OutputFormat: "yaml",
+			LogLevel:     "INFO",
+			VaultConfig:  vCfg,
+			VaultCli:     vCli,
 		},
 			false},
 	}
@@ -282,7 +283,7 @@ func Test_newGVS(t *testing.T) {
 				(gotGvs.VaultSecretID != tt.wantGvs.VaultSecretID) ||
 				(gotGvs.SecretFilePath != tt.wantGvs.SecretFilePath) ||
 				(gotGvs.VaultCli.Status != tt.wantGvs.VaultCli.Status) {
-
+				fmt.Println("status: " + gotGvs.VaultCli.Status + " " + tt.wantGvs.VaultCli.Status)
 				t.Errorf("newGVS() = %v, want %v", gotGvs, tt.wantGvs)
 			}
 		})

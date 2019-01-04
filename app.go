@@ -29,12 +29,12 @@ type gvs struct {
 	VaultSecretID       string
 	SecretFilePath      string
 	SecretAvailabletime string
-	SecretList          []string
-	VaultToken          string
-	OutputFormat        string
-	LogLevel            string
-	VaultConfig         *vault.Config
-	VaultCli            *vault.VaultClient
+	//	SecretList          []string
+	VaultToken   string
+	OutputFormat string
+	LogLevel     string
+	VaultConfig  *vault.Config
+	VaultCli     *vault.VaultClient
 }
 
 func errInfo() (info string) {
@@ -56,7 +56,7 @@ func newGVS() (*gvs, error) {
 	gvs.AppEnv = os.Getenv("GVS_APPENV")
 	gvs.VaultURL = os.Getenv("GVS_VAULTURL")
 	gvs.VaultSecretPath = strings.TrimSuffix(strings.TrimPrefix(os.Getenv("GVS_SECRETPATH"), "/"), "/")
-	gvs.SecretFilePath = os.Getenv("GVS_SECRETFILEPATH")
+	//gvs.SecretFilePath = os.Getenv("GVS_SECRETFILEPATH")
 	gvs.SecretAvailabletime = os.Getenv("GVS_SECRETAVAILABLETIME")
 	gvs.VaultRoleID = os.Getenv("GVS_VAULTROLEID")
 	gvs.VaultSecretID = os.Getenv("GVS_VAULTSECRETID")
@@ -121,9 +121,9 @@ func newGVS() (*gvs, error) {
 		return gvs, errors.New("Error creating new Vault client: " + err.Error())
 	}
 
-	if len(os.Getenv("GVS_SECRETLIST")) > 0 {
-		gvs.SecretList = strings.Split(os.Getenv("GVS_SECRETLIST"), ",")
-	}
+	// if len(os.Getenv("GVS_SECRETLIST")) > 0 {
+	// 	gvs.SecretList = strings.Split(os.Getenv("GVS_SECRETLIST"), ",")
+	// }
 	log.Debugf("gvs config: %+v", gvs.AppName)
 
 	return gvs, nil
@@ -166,24 +166,12 @@ func (g *gvs) GetVaultSecret(path string) (kv map[string]string, err error) {
 
 func (g *gvs) publishVaultSecret() error {
 	secretsList := make(map[string]string)
-	if len(g.SecretList) > 0 {
-		for _, v := range g.SecretList {
-			kvMap, err := g.GetVaultSecret(g.VaultSecretPath + "/" + v)
-			if err != nil {
-				return errors.Wrap(errors.WithStack(err), errInfo())
-			}
-			for k, v := range kvMap {
-				secretsList[k] = v
-			}
-		}
-	} else {
-		kvMap, err := g.GetVaultSecret(g.VaultSecretPath)
-		if err != nil {
-			return errors.Wrap(errors.WithStack(err), errInfo())
-		}
-		for k, v := range kvMap {
-			secretsList[k] = v
-		}
+	kvMap, err := g.GetVaultSecret(g.VaultSecretPath)
+	if err != nil {
+		return errors.Wrap(errors.WithStack(err), errInfo())
+	}
+	for k, v := range kvMap {
+		secretsList[k] = v
 	}
 
 	// add GVS_APPNAME & GVS_APPENV to secretfile
@@ -194,7 +182,7 @@ func (g *gvs) publishVaultSecret() error {
 		log.Debugf("Populated secret: %v = %v (value hidden)", kd, generateRandomString(len(vd)))
 	}
 	// create the secret file
-	err := g.writeSecret(secretsList)
+	err = g.writeSecret(secretsList)
 	if err != nil {
 		return errors.Wrap(errors.WithStack(err), errInfo())
 	}
