@@ -86,8 +86,11 @@ func newGVS() (*gvs, error) {
 
 	if len(gvs.SecretAvailabletime) == 0 {
 		gvs.SecretAvailabletime = "60"
-	} else if len(gvs.SecretAvailabletime) > 180 {
-		gvs.SecretAvailabletime = "180"
+	} else {
+		numSec, err := strconv.Atoi(gvs.SecretAvailabletime)
+		if err != nil || numSec > 180 {
+			gvs.SecretAvailabletime = "180"
+		}
 	}
 
 	if len(gvs.VaultRoleID) == 0 {
@@ -132,24 +135,12 @@ func newGVS() (*gvs, error) {
 func main() {
 	gvs, err := newGVS()
 	if err != nil {
-		log.Fatalf("Fatal error initializing app %v", err)
+		log.Fatalf("Fatal initializing gvs: %v", err)
 	}
-	//fmt.Println("Checking secretfileok")
-	secretFileOK, errSecretFile := gvs.isSecretFilePathOK()
-	if errSecretFile != nil {
-		log.Fatal(errors.WithStack(errSecretFile))
+	err = gvs.publishVaultSecret()
+	if err != nil {
+		log.Fatalf("Error publishing secret: %v", err)
 	}
-	if secretFileOK {
-		// read Vault Secrets write them in kv file
-		err = gvs.publishVaultSecret()
-		if err != nil {
-			//log.Fatalf("%+v", errors.WithStack(err))
-			log.Fatal(errors.WithStack(err))
-		}
-	}
-
-	_ = destroySecretFile(gvs.SecretFilePath, gvs.SecretAvailabletime)
-
 	log.Infof("Secret file: %v, will be removed in %v seconds", gvs.SecretFilePath, gvs.SecretAvailabletime)
 }
 
@@ -165,28 +156,36 @@ func (g *gvs) GetVaultSecret(path string) (kv map[string]string, err error) {
 }
 
 func (g *gvs) publishVaultSecret() error {
-	secretsList := make(map[string]string)
-	kvMap, err := g.GetVaultSecret(g.VaultSecretPath)
-	if err != nil {
-		return errors.Wrap(errors.WithStack(err), errInfo())
+	//Checking if secret file is writeable and deleteable
+	secretFileOK, errSecretFile := g.isSecretFilePathOK()
+	if errSecretFile != nil {
+		log.Fatal(errors.WithStack(errSecretFile))
 	}
-	for k, v := range kvMap {
-		secretsList[k] = v
-	}
+	if secretFileOK {
+		secretsList := make(map[string]string)
+		kvMap, err := g.GetVaultSecret(g.VaultSecretPath)
+		if err != nil {
+			return errors.Wrap(errors.WithStack(err), errInfo())
+		}
+		for k, v := range kvMap {
+			secretsList[k] = v
+		}
 
-	// add GVS_APPNAME & GVS_APPENV to secretfile
-	secretsList["GVS_APPNAME"] = g.AppName
-	secretsList["GVS_APPENV"] = g.AppEnv
+		// add GVS_APPNAME & GVS_APPENV to secretfile
+		secretsList["GVS_APPNAME"] = g.AppName
+		secretsList["GVS_APPENV"] = g.AppEnv
 
-	for kd, vd := range secretsList {
-		log.Debugf("Populated secret: %v = %v (value hidden)", kd, generateRandomString(len(vd)))
+		for kd, vd := range secretsList {
+			log.Debugf("Populated secret: %v = %v (value hidden)", kd, generateRandomString(len(vd)))
+		}
+		// create the secret file
+		err = g.writeSecret(secretsList)
+		if err != nil {
+			return errors.Wrap(errors.WithStack(err), errInfo())
+		}
+		_ = destroySecretFile(g.SecretFilePath, g.SecretAvailabletime)
 	}
-	// create the secret file
-	err = g.writeSecret(secretsList)
-	if err != nil {
-		return errors.Wrap(errors.WithStack(err), errInfo())
-	}
-	return err
+	return nil
 }
 
 func (g *gvs) writeSecret(kv map[string]string) error {

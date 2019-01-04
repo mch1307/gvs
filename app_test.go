@@ -1,6 +1,7 @@
 package main
 
 import (
+	"time"
 	//	"log"
 	"fmt"
 	"os"
@@ -245,11 +246,12 @@ func Test_newGVS(t *testing.T) {
 	os.Setenv("GVS_VAULTSECRETID", "/tmp/secret_id")
 	os.Setenv("GVS_SECRETPATH", "kv_v2/my-app-dev")
 	tests := []struct {
-		name    string
-		wantGvs *gvs
-		wantErr bool
+		name            string
+		wantGvs         *gvs
+		secretAvailTime string
+		wantErr         bool
 	}{
-		{"ok", &gvs{AppName: "my-app",
+		{"Standard", &gvs{AppName: "my-app",
 			AppEnv:              "dev",
 			VaultURL:            vCfg.Address,
 			VaultSecretPath:     "kv_v2/my-app-dev",
@@ -257,23 +259,37 @@ func Test_newGVS(t *testing.T) {
 			VaultSecretID:       "/tmp/secret_id",
 			SecretFilePath:      "/dev/shm/gvs",
 			SecretAvailabletime: "60",
-			//			SecretList:          nil,
-			VaultToken:   "",
-			OutputFormat: "yaml",
-			LogLevel:     "INFO",
-			VaultConfig:  vCfg,
-			VaultCli:     vCli,
-		},
-			false},
+			VaultToken:          "",
+			OutputFormat:        "yaml",
+			LogLevel:            "INFO",
+			VaultConfig:         vCfg,
+			VaultCli:            vCli,
+		}, "60", false},
+		{"maxAvailableTime", &gvs{AppName: "my-app",
+			AppEnv:              "dev",
+			VaultURL:            vCfg.Address,
+			VaultSecretPath:     "kv_v2/my-app-dev",
+			VaultRoleID:         "/tmp/role_id",
+			VaultSecretID:       "/tmp/secret_id",
+			SecretFilePath:      "/dev/shm/gvs",
+			SecretAvailabletime: "180",
+			VaultToken:          "",
+			OutputFormat:        "yaml",
+			LogLevel:            "INFO",
+			VaultConfig:         vCfg,
+			VaultCli:            vCli,
+		}, "190", false},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			os.Setenv("GVS_SECRETAVAILABLETIME", tt.secretAvailTime)
 			gotGvs, err := newGVS()
 			if (err != nil) != tt.wantErr {
 				t.Errorf("newGVS() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
-			//!reflect.DeepEqual(gotGvs.VaultCli.Status, tt.wantGvs.VaultCli.Status)
+			// wait 8 seconds so that token is renewed
+			time.Sleep(8 * time.Second)
 
 			if (gotGvs.AppName != tt.wantGvs.AppName) ||
 				(gotGvs.AppEnv != tt.wantGvs.AppEnv) ||
