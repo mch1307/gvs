@@ -1,6 +1,6 @@
 # gvs
 
-[![Coverage Status](https://coveralls.io/repos/github/mch1307/gvs/badge.svg?branch=dev)](https://coveralls.io/github/mch1307/gvs?branch=dev)
+[![Coverage Status](https://coveralls.io/repos/github/mch1307/gvs/badge.svg?branch=dev)](https://coveralls.io/github/mch1307/gvs?branch=dev) [![Go Report Card](https://goreportcard.com/badge/github.com/mch1307/gvs)](https://goreportcard.com/report/github.com/mch1307/gvs) [![Build Status](https://travis-ci.org/mch1307/gvs.svg?branch=master)](https://travis-ci.org/mch1307/gvs)
 
 Simple (linux) container utility to read Vault secrets for a given application. Will put the secret(s) in a file and remove this file after x seconds.
 
