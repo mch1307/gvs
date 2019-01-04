@@ -5,6 +5,7 @@ go:
   - tip
 install: true
 before_install:
+  - go get github.com/mch1307/gvs
   - go get github.com/mattn/goveralls
 script:
   - goveralls -v -service=travis-ci
