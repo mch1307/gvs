@@ -1,7 +1,4 @@
 # .goreleaser.yml
-before:
-   hooks:
-   - go mod download
 # Build customization
 builds:
   - main: app.go
