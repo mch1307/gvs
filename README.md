@@ -1,10 +1,10 @@
 # gvs
 
-[![Coverage Status](https://coveralls.io/repos/github/mch1307/gvs/badge.svg?branch=dev)](https://coveralls.io/github/mch1307/gvs?branch=dev) [![Go Report Card](https://goreportcard.com/badge/github.com/mch1307/gvs)](https://goreportcard.com/report/github.com/mch1307/gvs) [![Build Status](https://travis-ci.org/mch1307/gvs.svg?branch=master)](https://travis-ci.org/mch1307/gvs)
+[![Coverage Status](https://coveralls.io/repos/github/mch1307/gvs/badge.svg)](https://coveralls.io/github/mch1307/gvs) [![Go Report Card](https://goreportcard.com/badge/github.com/mch1307/gvs)](https://goreportcard.com/report/github.com/mch1307/gvs) [![Build Status](https://travis-ci.org/mch1307/gvs.svg)](https://travis-ci.org/mch1307/gvs)
 
 Simple (linux) container utility to read Vault secrets for a given application. Will put the secret(s) in a file and remove this file after x seconds.
 
-Support secrets stored as key/value for both kv v1 and v2.
+Support Vault KV secrets, both kv v1 and v2.
 
 ## Use Case
 
@@ -32,7 +32,7 @@ GVS_APPENV                  Environment where the app will run (ie dev, test,..)
 GVS_VAULTURL                URL of the Vault server
 GVS_SECRETPATH              Path to the Vault secret.
 GVS_SECRETTARGETPATH        Path where the secret kv file will be written  (default /dev/shm/gvs)
-GVS_SECRETAVAILABLETIME     Number of seconds after which the secret file will be destroyed
+GVS_SECRETAVAILABLETIME     Number of seconds after which the secret file will be destroyed (default 60 max 180)
 GVS_VAULTROLEID             Path to file containing the Vault role id (default run/secrets/role_id)
 GVS_VAULTROLESECRETID       Path to file containing the Vault secret id (default /run/secrets/secret_id)
 GVS_OUTPUTFORMAT            yaml by default, key=value text if any other value supplied
