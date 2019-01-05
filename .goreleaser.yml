@@ -1,0 +1,20 @@
+# .goreleaser.yml
+before:
+   hooks:
+   - go mod download
+# Build customization
+builds:
+  - main: app.go
+    binary: gvs
+    goos:
+      - linux
+    goarch:
+      - amd64
+      - arm64
+  env:
+    - CGO_ENABLED=0
+  ldflags:
+    - -s -w -X main.version={{.Version}}
+# Archive customization
+archive:
+  format: tar.gz

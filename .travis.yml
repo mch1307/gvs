@@ -2,7 +2,6 @@
 language: go
 go:
   - 1.11.4
-  - tip
 install: true
 before_install:
   - go get github.com/mch1307/gvs
