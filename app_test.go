@@ -228,6 +228,7 @@ func Test_gvsConfig_writeSecret(t *testing.T) {
 			}
 		})
 	}
+	_ = destroySecretFile("./test.kv", "0")
 }
 
 func Test_newGVS(t *testing.T) {
