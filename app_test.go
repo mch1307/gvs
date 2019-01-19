@@ -1,9 +1,9 @@
 package main
 
 import (
-	"time"
+
 	//	"log"
-	"fmt"
+
 	"os"
 	"testing"
 
@@ -133,7 +133,7 @@ func Test_gvsConfig_isSecretFilePathOK(t *testing.T) {
 		OutputFormat        string
 		LogLevel            string
 		VaultConfig         *vault.Config
-		VaultCli            *vault.VaultClient
+		VaultCli            *vault.Client
 	}
 	tests := []struct {
 		name     string
@@ -191,7 +191,7 @@ func Test_gvsConfig_writeSecret(t *testing.T) {
 		OutputFormat        string
 		LogLevel            string
 		VaultConfig         *vault.Config
-		VaultCli            *vault.VaultClient
+		VaultCli            *vault.Client
 	}
 	type args struct {
 		kv map[string]string
@@ -231,6 +231,12 @@ func Test_gvsConfig_writeSecret(t *testing.T) {
 	_ = destroySecretFile("./test.kv", "0")
 }
 
+func setEnv(kv map[string]string) {
+	for k, v := range kv {
+		os.Setenv(k, v)
+	}
+}
+
 func Test_newGVS(t *testing.T) {
 	vCfg := vault.NewConfig()
 	vCfg.Address = "http://localhost:8200"
@@ -239,18 +245,11 @@ func Test_newGVS(t *testing.T) {
 	if err != nil {
 		log.Fatalf("Error getting new vault client: %v", err)
 	}
-	//vaultConfig.AppRoleCredentials
-	os.Setenv("GVS_APPNAME", "my-app")
-	os.Setenv("GVS_APPENV", "dev")
-	os.Setenv("GVS_VAULTURL", vCfg.Address)
-	os.Setenv("GVS_VAULTROLEID", "/tmp/role_id")
-	os.Setenv("GVS_VAULTSECRETID", "/tmp/secret_id")
-	os.Setenv("GVS_SECRETPATH", "kv_v2/my-app-dev")
 	tests := []struct {
-		name            string
-		wantGvs         *gvs
-		secretAvailTime string
-		wantErr         bool
+		name    string
+		wantGvs *gvs
+		env     map[string]string
+		wantErr bool
 	}{
 		{"Standard", &gvs{AppName: "my-app",
 			AppEnv:              "dev",
@@ -265,7 +264,10 @@ func Test_newGVS(t *testing.T) {
 			LogLevel:            "INFO",
 			VaultConfig:         vCfg,
 			VaultCli:            vCli,
-		}, "60", false},
+		}, map[string]string{
+			"GVS_SECRETAVAILABLETIME": "60",
+		},
+			false},
 		{"maxAvailableTime", &gvs{AppName: "my-app",
 			AppEnv:              "dev",
 			VaultURL:            vCfg.Address,
@@ -279,19 +281,118 @@ func Test_newGVS(t *testing.T) {
 			LogLevel:            "INFO",
 			VaultConfig:         vCfg,
 			VaultCli:            vCli,
-		}, "190", false},
+		}, map[string]string{
+			"GVS_SECRETAVAILABLETIME": "190",
+		},
+			false},
+		{"noAvailableTime", &gvs{AppName: "my-app",
+			AppEnv:              "dev",
+			VaultURL:            vCfg.Address,
+			VaultSecretPath:     "kv_v2/my-app-dev",
+			VaultRoleID:         "/tmp/role_id",
+			VaultSecretID:       "/tmp/secret_id",
+			SecretFilePath:      "/dev/shm/gvs",
+			SecretAvailabletime: "60",
+			VaultToken:          "",
+			OutputFormat:        "yaml",
+			LogLevel:            "INFO",
+			VaultConfig:         vCfg,
+			VaultCli:            vCli,
+		}, map[string]string{
+			"GVS_SECRETAVAILABLETIME": "",
+		},
+			false},
+		{"defaults", &gvs{AppName: "my-app",
+			AppEnv:              "dev",
+			VaultURL:            vCfg.Address,
+			VaultSecretPath:     "kv_v2/my-app-dev",
+			VaultRoleID:         "/tmp/role_id",
+			VaultSecretID:       "/tmp/secret_id",
+			SecretFilePath:      "/dev/shm/gvs",
+			SecretAvailabletime: "60",
+			VaultToken:          "",
+			OutputFormat:        "yaml",
+			LogLevel:            "INFO",
+			VaultConfig:         vCfg,
+			VaultCli:            vCli,
+		}, map[string]string{
+			envSecretAvailableTime: "",
+			envSecretFilePath:      "",
+			envOutputFormat:        "",
+			envLogLevel:            "",
+		},
+			false},
+		{"default-err", &gvs{AppName: "my-app",
+			AppEnv:              "dev",
+			VaultURL:            vCfg.Address,
+			VaultSecretPath:     "kv_v2/my-app-dev",
+			VaultRoleID:         "/run/secrets/role_id",
+			VaultSecretID:       "/run/secrets/secret_id",
+			SecretFilePath:      "/dev/shm/gvs",
+			SecretAvailabletime: "60",
+			VaultToken:          "",
+			OutputFormat:        "yaml",
+			LogLevel:            "INFO",
+			VaultConfig:         nil,
+			VaultCli:            nil,
+		}, map[string]string{
+			envSecretAvailableTime: "",
+			envSecretFilePath:      "",
+			envOutputFormat:        "",
+			envLogLevel:            "",
+			envVaultRoleID:         "",
+			envVaultSecretID:       "",
+		},
+			true},
+		{"NoRoleID-err", &gvs{AppName: "my-app",
+			AppEnv:              "dev",
+			VaultURL:            vCfg.Address,
+			VaultSecretPath:     "kv_v2/my-app-dev",
+			VaultRoleID:         "/tmp/role_id",
+			VaultSecretID:       "/run/secrets/secret_id",
+			SecretFilePath:      "/dev/shm/gvs",
+			SecretAvailabletime: "60",
+			VaultToken:          "",
+			OutputFormat:        "yaml",
+			LogLevel:            "INFO",
+			VaultConfig:         nil,
+			VaultCli:            nil,
+		}, map[string]string{
+			envSecretAvailableTime: "",
+			envSecretFilePath:      "",
+			envOutputFormat:        "",
+			envLogLevel:            "",
+			envVaultSecretID:       "",
+		},
+			true},
+		{"wrongVaultURL", &gvs{AppName: "my-app",
+			AppEnv:              "dev",
+			VaultURL:            "ht@ps/:/wronghost",
+			VaultSecretPath:     "kv_v2/my-app-dev",
+			VaultRoleID:         "/tmp/role_id",
+			VaultSecretID:       "/tmp/secret_id",
+			SecretFilePath:      "/dev/shm/gvs",
+			SecretAvailabletime: "60",
+			VaultToken:          "",
+			OutputFormat:        "yaml",
+			LogLevel:            "INFO",
+			VaultConfig:         nil,
+			VaultCli:            nil,
+		}, map[string]string{
+			"GVS_SECRETAVAILABLETIME": "60",
+			envVaultAddr:              "ht@ps/:/wronghost",
+		},
+			true},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			os.Setenv("GVS_SECRETAVAILABLETIME", tt.secretAvailTime)
+			setEnv(defaultEnv)
+			setEnv(tt.env)
 			gotGvs, err := newGVS()
 			if (err != nil) != tt.wantErr {
 				t.Errorf("newGVS() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
-			// wait 8 seconds so that token is renewed
-			time.Sleep(8 * time.Second)
-
 			if (gotGvs.AppName != tt.wantGvs.AppName) ||
 				(gotGvs.AppEnv != tt.wantGvs.AppEnv) ||
 				(gotGvs.VaultURL != tt.wantGvs.VaultURL) ||
@@ -299,8 +400,7 @@ func Test_newGVS(t *testing.T) {
 				(gotGvs.VaultRoleID != tt.wantGvs.VaultRoleID) ||
 				(gotGvs.VaultSecretID != tt.wantGvs.VaultSecretID) ||
 				(gotGvs.SecretFilePath != tt.wantGvs.SecretFilePath) ||
-				(gotGvs.VaultCli.Status != tt.wantGvs.VaultCli.Status) {
-				fmt.Println("status: " + gotGvs.VaultCli.Status + " " + tt.wantGvs.VaultCli.Status)
+				(gotGvs.SecretAvailabletime != tt.wantGvs.SecretAvailabletime) {
 				t.Errorf("newGVS() = %v, want %v", gotGvs, tt.wantGvs)
 			}
 		})

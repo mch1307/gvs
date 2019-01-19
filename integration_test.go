@@ -15,6 +15,18 @@ var testVaultRoleID, testVaultSecretID string
 
 var vaultVersion string
 var mySecret = make(map[string]string)
+var defaultEnv = map[string]string{
+	envVaultAddr:           "http://localhost:8200",
+	envAppName:             "my-app",
+	envAppEnv:              "dev",
+	envSecretPath:          "kv_v2/my-app-dev",
+	envSecretFilePath:      "/dev/shm/",
+	envSecretAvailableTime: "30",
+	envVaultRoleID:         "/tmp/role_id",
+	envVaultSecretID:       "/tmp/secret_id",
+	envOutputFormat:        "yaml",
+	envLogLevel:            "INFO",
+}
 
 func init() {
 	flag.StringVar(&vaultVersion, "vaultVersion", "1.0.1", "provide vault version to be tested against")
