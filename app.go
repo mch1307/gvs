@@ -19,6 +19,17 @@ import (
 	yaml "gopkg.in/yaml.v2"
 )
 
+const envVaultAddr = "GVS_VAULTURL"
+const envAppName = "GVS_APPNAME"
+const envAppEnv = "GVS_APPENV"
+const envSecretPath = "GVS_SECRETPATH"
+const envSecretFilePath = "GVS_SECRETFILEPATH"
+const envSecretAvailableTime = "GVS_SECRETAVAILABLETIME"
+const envVaultRoleID = "GVS_VAULTROLEID"
+const envVaultSecretID = "GVS_VAULTSECRETID"
+const envOutputFormat = "GVS_OUTPUTFORMAT"
+const envLogLevel = "GVS_LOGLEVEL"
+
 // holds our config
 type gvs struct {
 	AppName             string
@@ -29,12 +40,11 @@ type gvs struct {
 	VaultSecretID       string
 	SecretFilePath      string
 	SecretAvailabletime string
-	//	SecretList          []string
-	VaultToken   string
-	OutputFormat string
-	LogLevel     string
-	VaultConfig  *vault.Config
-	VaultCli     *vault.VaultClient
+	VaultToken          string
+	OutputFormat        string
+	LogLevel            string
+	VaultConfig         *vault.Config
+	VaultCli            *vault.Client
 }
 
 func errInfo() (info string) {
@@ -50,18 +60,20 @@ var version string
 
 // Init read env and initialize app config
 func newGVS() (*gvs, error) {
+
 	gvs := new(gvs)
+
 	// get config from env
-	gvs.AppName = os.Getenv("GVS_APPNAME")
-	gvs.AppEnv = os.Getenv("GVS_APPENV")
-	gvs.VaultURL = os.Getenv("GVS_VAULTURL")
-	gvs.VaultSecretPath = strings.TrimSuffix(strings.TrimPrefix(os.Getenv("GVS_SECRETPATH"), "/"), "/")
-	//gvs.SecretFilePath = os.Getenv("GVS_SECRETFILEPATH")
-	gvs.SecretAvailabletime = os.Getenv("GVS_SECRETAVAILABLETIME")
-	gvs.VaultRoleID = os.Getenv("GVS_VAULTROLEID")
-	gvs.VaultSecretID = os.Getenv("GVS_VAULTSECRETID")
-	gvs.OutputFormat = os.Getenv("GVS_OUTPUTFORMAT")
-	gvs.LogLevel = os.Getenv("GVS_LOGLEVEL")
+	gvs.AppName = os.Getenv(envAppName)
+	gvs.AppEnv = os.Getenv(envAppEnv)
+	gvs.VaultURL = os.Getenv(envVaultAddr)
+	gvs.VaultSecretPath = strings.TrimSuffix(strings.TrimPrefix(os.Getenv(envSecretPath), "/"), "/")
+	gvs.SecretAvailabletime = os.Getenv(envSecretAvailableTime)
+	gvs.VaultRoleID = os.Getenv(envVaultRoleID)
+	gvs.VaultSecretID = os.Getenv(envVaultSecretID)
+	gvs.SecretFilePath = os.Getenv(envSecretFilePath)
+	gvs.OutputFormat = os.Getenv(envOutputFormat)
+	gvs.LogLevel = os.Getenv(envLogLevel)
 
 	// initialize logger
 	log.SetFormatter(&log.TextFormatter{})
@@ -104,7 +116,7 @@ func newGVS() (*gvs, error) {
 	// get Vault App Role credentials
 	vaultRoleID, err := getSecretFromFile(gvs.VaultRoleID)
 	if err != nil {
-		return gvs, errors.New("Error reading role_is secret: " + err.Error())
+		return gvs, errors.New("Error reading role_id secret: " + err.Error())
 	}
 
 	vaultSecretID, err := getSecretFromFile(gvs.VaultSecretID)
@@ -124,9 +136,6 @@ func newGVS() (*gvs, error) {
 		return gvs, errors.New("Error creating new Vault client: " + err.Error())
 	}
 
-	// if len(os.Getenv("GVS_SECRETLIST")) > 0 {
-	// 	gvs.SecretList = strings.Split(os.Getenv("GVS_SECRETLIST"), ",")
-	// }
 	log.Debugf("gvs config: %+v", gvs.AppName)
 
 	return gvs, nil
@@ -146,13 +155,13 @@ func main() {
 
 // GetVaultSecret read secret kv at given path
 // Returns a key value list
-func (g *gvs) GetVaultSecret(path string) (kv map[string]string, err error) {
-	kvMap, err := g.VaultCli.GetVaultSecret(path)
+func (g *gvs) getVaultSecret(path string) (kv map[string]string, err error) {
+	kvMap, err := g.VaultCli.GetSecret(path)
 	if err != nil {
 		return kv, err
 	}
 
-	return kvMap, nil
+	return kvMap.KV, nil
 }
 
 func (g *gvs) publishVaultSecret() error {
@@ -163,7 +172,7 @@ func (g *gvs) publishVaultSecret() error {
 	}
 	if secretFileOK {
 		secretsList := make(map[string]string)
-		kvMap, err := g.GetVaultSecret(g.VaultSecretPath)
+		kvMap, err := g.getVaultSecret(g.VaultSecretPath)
 		if err != nil {
 			return errors.Wrap(errors.WithStack(err), errInfo())
 		}
