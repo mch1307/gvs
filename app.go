@@ -23,7 +23,7 @@ const envVaultAddr = "GVS_VAULTURL"
 const envAppName = "GVS_APPNAME"
 const envAppEnv = "GVS_APPENV"
 const envSecretPath = "GVS_SECRETPATH"
-const envSecretFilePath = "GVS_SECRETFILEPATH"
+const envSecretFilePath = "GVS_SECRETTARGETPATH"
 const envSecretAvailableTime = "GVS_SECRETAVAILABLETIME"
 const envVaultRoleID = "GVS_VAULTROLEID"
 const envVaultSecretID = "GVS_VAULTSECRETID"
@@ -168,7 +168,7 @@ func (g *gvs) publishVaultSecret() error {
 	//Checking if secret file is writeable and deleteable
 	secretFileOK, errSecretFile := g.isSecretFilePathOK()
 	if errSecretFile != nil {
-		log.Fatal(errors.WithStack(errSecretFile))
+		return errors.WithStack(errSecretFile)
 	}
 	if secretFileOK {
 		secretsList := make(map[string]string)
