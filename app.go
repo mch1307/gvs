@@ -142,18 +142,12 @@ func newGVS() (*gvs, error) {
 }
 
 func main() {
-	gvs, err := newGVS()
-	if err != nil {
-		log.Fatalf("Fatal initializing gvs: %v", err)
-	}
-	err = gvs.publishVaultSecret()
-	if err != nil {
+	if err := publishVaultSecret(); err != nil {
 		log.Fatalf("Error publishing secret: %v", err)
 	}
-	log.Infof("Secret file: %v, will be removed in %v seconds", gvs.SecretFilePath, gvs.SecretAvailabletime)
 }
 
-// GetVaultSecret read secret kv at given path
+// getVaultSecret read secret kv at given path
 // Returns a key value list
 func (g *gvs) getVaultSecret(path string) (kv map[string]string, err error) {
 	kvMap, err := g.VaultCli.GetSecret(path)
@@ -164,7 +158,11 @@ func (g *gvs) getVaultSecret(path string) (kv map[string]string, err error) {
 	return kvMap.KV, nil
 }
 
-func (g *gvs) publishVaultSecret() error {
+func publishVaultSecret() error {
+	g, err := newGVS()
+	if err != nil {
+		return errors.Wrap(errors.WithStack(err), errInfo())
+	}
 	//Checking if secret file is writeable and deleteable
 	secretFileOK, errSecretFile := g.isSecretFilePathOK()
 	if errSecretFile != nil {
@@ -194,6 +192,7 @@ func (g *gvs) publishVaultSecret() error {
 		}
 		_ = destroySecretFile(g.SecretFilePath, g.SecretAvailabletime)
 	}
+	log.Infof("Secret file: %v, will be removed in %v seconds", g.SecretFilePath, g.SecretAvailabletime)
 	return nil
 }
 

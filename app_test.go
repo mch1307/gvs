@@ -386,12 +386,17 @@ func Test_gvs_publishVaultSecret(t *testing.T) {
 			envSecretFilePath: defaultEnv[envSecretFilePath],
 			envSecretPath:     "/no-valid-path"},
 			true},
+		{"newGvsKO", map[string]string{
+			envSecretFilePath: defaultEnv[envSecretFilePath],
+			envVaultRoleID:    "",
+			envVaultSecretID:  ""},
+			true},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			setEnv(tt.env)
-			g, _ := newGVS()
-			if err := g.publishVaultSecret(); (err != nil) != tt.wantErr {
+			//g, _ := newGVS()
+			if err := publishVaultSecret(); (err != nil) != tt.wantErr {
 				t.Errorf("gvs.publishVaultSecret() error = %v, wantErr %v", err, tt.wantErr)
 			}
 		})
