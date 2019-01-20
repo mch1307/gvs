@@ -15,12 +15,12 @@ fi
 sleep 5
 
 # create KVs
-#./vault secrets enable -path=kv_v1/path/ kv >> /tmp/vaultdev.log
+./vault secrets enable -path=kv_v1/ kv >> /tmp/vaultdev.log
 ./vault secrets enable -path=kv_v2/ kv >> /tmp/vaultdev.log
 ./vault kv enable-versioning kv_v2/ >> /tmp/vaultdev.log
 
 # create secrets
-#./vault kv put kv_v1/path/my-secret my-v1-secret=my-v1-secret-value >> /tmp/vaultdev.log
+./vault kv put kv_v1/my-secret my-first-secret=my-first-secret-value my-second-secret=my-second-secret-value >> /tmp/vaultdev.log
 ./vault kv put kv_v2/my-app-dev my-first-secret=my-first-secret-value my-second-secret=my-second-secret-value >> /tmp/vaultdev.log
 
 # create policy

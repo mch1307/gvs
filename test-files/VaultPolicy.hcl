@@ -44,3 +44,8 @@ path "kv_v2/*"
 {
   capabilities = ["read", "list"]
 }
+
+path "kv_v1/*"
+{
+  capabilities = ["read", "list"]
+}
